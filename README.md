@@ -55,7 +55,6 @@ Windows: `%APPDATA%\at.8moss.programm\`).
 
 ## Nächste Schritte
 
-1. Angebot aus Katalogpositionen, PDF im 8moss-Layout
 1. Automatische Datensicherung
 2. Rechnung mit ebInterface und Reverse Charge
 3. ONLV-Import und -Export (ÖNORM A 2063-2)
