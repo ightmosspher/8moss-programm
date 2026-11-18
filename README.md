@@ -45,7 +45,7 @@ npm run dev            # dann http://localhost:1420 öffnen
 | `src/db/repo.ts` | Lesen und Speichern von Kunden, Katalog, Firma |
 | `src/db/geld.ts` | Beträge in Cent, Formatierung, Einheitspreis-Kalkulation |
 | `src/db/belege.ts` | Belege: Entwurf speichern, abschließen, Nummernkreis |
-| `src/pdf/BelegPdf.tsx` | Druckvorlage im 8moss-Layout (Schrift: Nunito Sans als freie Alternative zu Avenir Next) |
+| `src/pdf/BelegPdf.tsx` | Druckvorlage im 8moss-Layout (Schrift: Helvetica) |
 | `src/views/` | Bildschirme (Kunden, Positionskatalog, Einstellungen, …) |
 | `src-tauri/` | Desktop-Hülle (Rust), Fenster, Rechte, Installationspakete |
 

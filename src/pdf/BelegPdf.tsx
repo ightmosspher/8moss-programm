@@ -1,25 +1,13 @@
 /**
  * Druckvorlage für Belege im 8moss-Layout (nach der Rechnungsvorlage RE1.1).
  * Gilt für Angebot, Auftragsbestätigung, Bestellung und Rechnung.
+ * Schrift: Helvetica (PDF-Standardschrift, wird von jedem PDF-Programm mitgebracht).
  */
 import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import logo from "../assets/8moss-logo.png";
-import f300 from "@fontsource/nunito-sans/files/nunito-sans-latin-300-normal.woff";
-import f400 from "@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff";
-import f600 from "@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff";
-import f700 from "@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff";
 import { Beleg, BelegPosition, positionGesamt, summen } from "../db/belege";
 import { Firma, Kunde } from "../db/repo";
 
-Font.register({
-  family: "Nunito Sans",
-  fonts: [
-    { src: f300, fontWeight: 300 },
-    { src: f400, fontWeight: 400 },
-    { src: f600, fontWeight: 600 },
-    { src: f700, fontWeight: 700 },
-  ],
-});
 Font.registerHyphenationCallback((w) => [w]); // keine Silbentrennung
 
 const grau = "#8a8a8a";
@@ -27,11 +15,11 @@ const linie = "#9a9a9a";
 const sp = 0.6; // Laufweite wie in der Vorlage
 
 const s = StyleSheet.create({
-  seite: { fontFamily: "Nunito Sans", fontWeight: 300, fontSize: 10, color: "#111", paddingTop: 98, paddingBottom: 92, paddingLeft: 90, paddingRight: 66 },
+  seite: { fontFamily: "Helvetica", fontSize: 10, color: "#111", paddingTop: 98, paddingBottom: 92, paddingLeft: 90, paddingRight: 66 },
   logo: { position: "absolute", top: 40, right: 66, width: 160 },
-  absender: { alignSelf: "flex-end", textAlign: "right", fontSize: 10.5, fontWeight: 400, lineHeight: "15pt" },
-  fett: { fontWeight: 700 },
-  empfaenger: { marginTop: 4, fontSize: 10.5, fontWeight: 400, lineHeight: "15pt" },
+  absender: { alignSelf: "flex-end", textAlign: "right", fontSize: 10.5, fontWeight: "normal", lineHeight: "15pt" },
+  fett: { fontWeight: "bold" },
+  empfaenger: { marginTop: 4, fontSize: 10.5, fontWeight: "normal", lineHeight: "15pt" },
   datum: { textAlign: "right", fontSize: 10.5, letterSpacing: sp, paddingBottom: 3, borderBottomWidth: 0.6, borderBottomColor: "#111" },
   nummer: { marginTop: 3, fontSize: 10.5, letterSpacing: sp },
   text: { fontSize: 10.5, letterSpacing: sp, lineHeight: "18pt" },
@@ -130,7 +118,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
             <View style={s.zeile}>
               <Text style={s.cPos}>{p.ordnungszahl || `${i + 1}.0`}</Text>
               <Text style={s.cAnz}>{menge(p.menge)}{p.einheit && !["Stk", "pausch"].includes(p.einheit) ? ` ${p.einheit.replace("m2", "m²").replace("m3", "m³")}` : ""}</Text>
-              <Text style={[s.cArt, { fontWeight: 400 }]}>{p.kurztext}</Text>
+              <Text style={[s.cArt, { fontWeight: "normal" }]}>{p.kurztext}</Text>
               <Text style={s.cEh}>{euro(p.einheitspreis_cent)}</Text>
               <Text style={s.cGes}>{euro(positionGesamt(p))}</Text>
             </View>
