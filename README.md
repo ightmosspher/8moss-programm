@@ -18,7 +18,21 @@ Grundgerüst (Version 0.1):
 - PDF im 8moss-Layout (nach Rechnungsvorlage RE1.1), gilt auch für Bestellung und Rechnung
 - Bestellungen, Rechnungen: noch Platzhalter
 
-## Starten
+## Installieren (ohne Entwickler-Werkzeuge)
+
+Bei jeder Änderung baut GitHub automatisch fertige Installationsdateien:
+
+1. Im Repository rechts auf **Releases** und dann **Vorschau (neuester Stand)** klicken.
+2. Unter **Assets** die passende Datei herunterladen:
+3. Mac: `.dmg`, Windows: `.msi` oder `-setup.exe`.
+
+Das Programm ist noch nicht signiert. Beim ersten Start daher:
+
+- **Mac:** Programm in den Ordner „Programme“ ziehen, dann mit Rechtsklick > **Öffnen** starten und bestätigen.
+  Falls „beschädigt“ gemeldet wird, einmal im Terminal ausführen: `xattr -cr /Applications/8moss.app`
+- **Windows:** Bei „Der Computer wurde durch Windows geschützt“ auf **Weitere Informationen** > **Trotzdem ausführen**.
+
+## Starten (für Entwicklung)
 
 Voraussetzungen (einmalig): [Node.js](https://nodejs.org) ab Version 20 und
 [Rust](https://rustup.rs). Auf dem Mac zusätzlich `xcode-select --install`,
