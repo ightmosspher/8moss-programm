@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { getDb } from "./db";
 import Kunden from "./views/Kunden";
 import Katalog from "./views/Katalog";
+import Lieferanten from "./views/Lieferanten";
+import Projekte from "./views/Projekte";
 import Einstellungen from "./views/Einstellungen";
 import Platzhalter from "./views/Platzhalter";
 
@@ -19,7 +21,7 @@ const menue: { id: Seite; titel: string; gruppe: string }[] = [
 ];
 
 export default function App() {
-  const [seite, setSeite] = useState<Seite>("kunden");
+  const [seite, setSeite] = useState<Seite>("projekte");
   const [fehler, setFehler] = useState<string | null>(null);
   const [bereit, setBereit] = useState(false);
 
@@ -52,9 +54,9 @@ export default function App() {
             {seite === "kunden" && <Kunden />}
             {seite === "katalog" && <Katalog />}
             {seite === "einstellungen" && <Einstellungen />}
-            {seite === "projekte" && <Platzhalter titel="Projekte" text="Projektübersicht mit Status aller Belege. Kommt im Prototyp." />}
+            {seite === "projekte" && <Projekte zuKunden={() => setSeite("kunden")} />}
             {seite === "angebote" && <Platzhalter titel="Angebote" text="Angebot aus Katalogpositionen zusammenstellen und als PDF im 8moss-Layout ausgeben. Kommt im Prototyp." />}
-            {seite === "lieferanten" && <Platzhalter titel="Lieferanten" text="Lieferanten-Stammdaten. Kommt im Prototyp." />}
+            {seite === "lieferanten" && <Lieferanten />}
             {seite === "bestellungen" && <Platzhalter titel="Bestellungen" text="Bestellung je Lieferant aus Auftragspositionen. Kommt im Ausbau." />}
             {seite === "rechnungen" && <Platzhalter titel="Rechnungen" text="Abschlags- und Schlussrechnung mit ebInterface-Export. Kommt im Ausbau." />}
           </>

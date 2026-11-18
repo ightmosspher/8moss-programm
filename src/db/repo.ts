@@ -140,3 +140,102 @@ export async function deaktiviereKatalogPosition(id: number) {
   const db = await getDb();
   await db.execute("UPDATE katalog_position SET aktiv = 0 WHERE id = $1", [id]);
 }
+
+// ---------- Lieferanten ----------
+export interface Lieferant {
+  id?: number;
+  name: string;
+  strasse?: string | null;
+  plz?: string | null;
+  ort?: string | null;
+  uid?: string | null;
+  email?: string | null;
+  telefon?: string | null;
+  unsere_kundennummer?: string | null;
+  notiz?: string | null;
+}
+
+export async function listeLieferanten(suche = ""): Promise<Lieferant[]> {
+  const db = await getDb();
+  return db.select<Lieferant>(
+    "SELECT * FROM lieferant WHERE name LIKE $1 OR ort LIKE $1 ORDER BY name COLLATE NOCASE",
+    [`%${suche}%`],
+  );
+}
+
+export async function speichereLieferant(l: Lieferant): Promise<number> {
+  const db = await getDb();
+  const werte = [l.name, l.strasse, l.plz, l.ort, l.uid, l.email, l.telefon, l.unsere_kundennummer, l.notiz];
+  if (l.id) {
+    await db.execute(
+      `UPDATE lieferant SET name=$1, strasse=$2, plz=$3, ort=$4, uid=$5, email=$6, telefon=$7,
+         unsere_kundennummer=$8, notiz=$9 WHERE id=$10`,
+      [...werte, l.id],
+    );
+    return l.id;
+  }
+  const r = await db.execute(
+    `INSERT INTO lieferant (name, strasse, plz, ort, uid, email, telefon, unsere_kundennummer, notiz)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    werte,
+  );
+  return r.lastInsertId!;
+}
+
+export async function loescheLieferant(id: number) {
+  const db = await getDb();
+  await db.execute("DELETE FROM lieferant WHERE id = $1", [id]);
+}
+
+// ---------- Projekte ----------
+export const projektStatus = [
+  { wert: "anfrage", text: "Anfrage" },
+  { wert: "angebot", text: "Angebot gelegt" },
+  { wert: "auftrag", text: "Auftrag" },
+  { wert: "abgerechnet", text: "Abgerechnet" },
+  { wert: "verloren", text: "Nicht erhalten" },
+] as const;
+
+export interface Projekt {
+  id?: number;
+  kunde_id: number;
+  kunde_name?: string;
+  bezeichnung: string;
+  baustelle?: string | null;
+  status: string;
+  quelle: string;
+  erstellt_am?: string;
+}
+
+export async function listeProjekte(suche = "", status = ""): Promise<Projekt[]> {
+  const db = await getDb();
+  return db.select<Projekt>(
+    `SELECT p.*, k.name AS kunde_name FROM projekt p JOIN kunde k ON k.id = p.kunde_id
+     WHERE (p.bezeichnung LIKE $1 OR k.name LIKE $1 OR p.baustelle LIKE $1)
+       AND ($2 = '' OR p.status = $2)
+     ORDER BY p.erstellt_am DESC, p.id DESC`,
+    [`%${suche}%`, status],
+  );
+}
+
+export async function speichereProjekt(p: Projekt): Promise<number> {
+  const db = await getDb();
+  const werte = [p.kunde_id, p.bezeichnung, p.baustelle, p.status, p.quelle];
+  if (p.id) {
+    await db.execute(
+      "UPDATE projekt SET kunde_id=$1, bezeichnung=$2, baustelle=$3, status=$4, quelle=$5 WHERE id=$6",
+      [...werte, p.id],
+    );
+    return p.id;
+  }
+  const r = await db.execute(
+    "INSERT INTO projekt (kunde_id, bezeichnung, baustelle, status, quelle) VALUES ($1,$2,$3,$4,$5)",
+    werte,
+  );
+  return r.lastInsertId!;
+}
+
+export async function loescheProjekt(id: number) {
+  const db = await getDb();
+  await db.execute("DELETE FROM projekt WHERE id = $1", [id]);
+}

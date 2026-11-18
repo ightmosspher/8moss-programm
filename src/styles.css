@@ -50,3 +50,8 @@ tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--grund); }
 tbody tr:last-child td { border-bottom: 0; }
 .zahl { text-align: right; font-variant-numeric: tabular-nums; }
+.status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; background: var(--grund); color: var(--leise); }
+.status-angebot { background: #fdf3dc; color: #8a6414; }
+.status-auftrag { background: var(--moos-hell); color: var(--moos); font-weight: 600; }
+.status-abgerechnet { background: #e4ecf5; color: #2f5a86; }
+.status-verloren { background: #f3e9e7; color: #8c5a52; }

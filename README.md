@@ -12,7 +12,9 @@ Grundgerüst (Version 0.1):
 - Kunden anlegen, bearbeiten, löschen (inkl. Reverse-Charge-Kennzeichen)
 - Positionskatalog mit Kalkulation: Lohnminuten × Mittellohnpreis + Material mit Zuschlag + Sonstiges, mit Gesamtzuschlag
 - Einstellungen: Firmendaten und Kalkulationswerte
-- Projekte, Angebote, Lieferanten, Bestellungen, Rechnungen: noch Platzhalter
+- Lieferanten anlegen, bearbeiten, löschen
+- Projekte mit Kunde, Baustelle, Herkunft (direkt/ONLV) und Status, filterbar
+- Angebote, Bestellungen, Rechnungen: noch Platzhalter
 
 ## Starten
 
@@ -49,8 +51,7 @@ Windows: `%APPDATA%\at.8moss.programm\`).
 
 ## Nächste Schritte
 
-1. Lieferanten und Projekte
-2. Angebot aus Katalogpositionen, PDF im 8moss-Layout
-3. Automatische Datensicherung
-4. Rechnung mit ebInterface und Reverse Charge
-5. ONLV-Import und -Export (ÖNORM A 2063-2)
+1. Angebot aus Katalogpositionen, PDF im 8moss-Layout
+2. Automatische Datensicherung
+3. Rechnung mit ebInterface und Reverse Charge
+4. ONLV-Import und -Export (ÖNORM A 2063-2)
