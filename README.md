@@ -18,9 +18,9 @@ Grundgerüst (Version 0.1):
 
 Bei jeder Änderung baut GitHub automatisch fertige Installationsdateien:
 
-1. Im Repository oben auf **Actions** klicken, dann **Installationsdatei bauen**.
-2. Den obersten Lauf mit grünem Haken öffnen.
-3. Unten bei **Artifacts** `8moss-mac` (.dmg) oder `8moss-windows` (.msi/.exe) herunterladen und entpacken.
+1. Im Repository rechts auf **Releases** und dann **Vorschau (neuester Stand)** klicken.
+2. Unter **Assets** die passende Datei herunterladen:
+3. Mac: `.dmg`, Windows: `.msi` oder `-setup.exe`.
 
 Das Programm ist noch nicht signiert. Beim ersten Start daher:
 
