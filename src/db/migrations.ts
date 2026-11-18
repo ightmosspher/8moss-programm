@@ -190,4 +190,39 @@ CREATE INDEX idx_beleg_projekt ON beleg(projekt_id);
 CREATE INDEX idx_belegpos_beleg ON beleg_position(beleg_id);
 `,
   },
+  {
+    version: 2,
+    name: "Angebot und Belegdruck",
+    sql: `
+ALTER TABLE firma ADD COLUMN gericht TEXT;            -- z. B. HG Ried im Innkreis
+ALTER TABLE firma ADD COLUMN unterzeichner TEXT;      -- Name unter dem Gruß
+ALTER TABLE firma ADD COLUMN angebot_gueltig_tage INTEGER NOT NULL DEFAULT 30;
+ALTER TABLE kunde ADD COLUMN firmenbuch TEXT;         -- FN des Kunden
+ALTER TABLE kunde ADD COLUMN anrede TEXT;             -- z. B. Sehr geehrter Herr Muster,
+ALTER TABLE beleg ADD COLUMN anrede TEXT;
+ALTER TABLE beleg ADD COLUMN zahlungsziel_tage INTEGER;
+
+INSERT INTO nummernkreis (art, praefix, jahr, naechste_nummer) VALUES
+  ('angebot', 'AN', CAST(strftime('%Y','now') AS INTEGER), 1),
+  ('auftrag', 'AB', CAST(strftime('%Y','now') AS INTEGER), 1),
+  ('bestellung', 'BE', CAST(strftime('%Y','now') AS INTEGER), 1),
+  ('rechnung', 'RE', CAST(strftime('%Y','now') AS INTEGER), 1),
+  ('gutschrift', 'GU', CAST(strftime('%Y','now') AS INTEGER), 1);
+`,
+  },
+  {
+    version: 3,
+    name: "8moss-Nummernschema Projekt-Beleg-Jahr",
+    sql: `
+-- Projektnummer (z. B. 10), läuft fortlaufend
+ALTER TABLE projekt ADD COLUMN nummer INTEGER;
+UPDATE projekt SET nummer = id;
+CREATE UNIQUE INDEX ux_projekt_nummer ON projekt(nummer);
+
+-- Belegnummer wie gedruckt, z. B. 10-12-26 (Projekt-laufender Beleg im Projekt-Jahr).
+-- Eindeutig je Belegart; die alte Spalte nummer hält intern art:belegnummer.
+ALTER TABLE beleg ADD COLUMN belegnummer TEXT;
+CREATE UNIQUE INDEX ux_beleg_art_belegnummer ON beleg(art, belegnummer);
+`,
+  },
 ];

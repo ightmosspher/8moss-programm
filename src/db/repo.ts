@@ -13,6 +13,8 @@ export interface Kunde {
   telefon?: string | null;
   reverse_charge: number;
   notiz?: string | null;
+  firmenbuch?: string | null;
+  anrede?: string | null;
 }
 
 export interface KatalogPosition {
@@ -41,6 +43,12 @@ export interface Firma {
   materialzuschlag_prozent: number;
   gesamtzuschlag_prozent: number;
   zahlungsziel_tage: number;
+  firmenbuch: string | null;
+  gericht: string | null;
+  bank: string | null;
+  web: string | null;
+  unterzeichner: string | null;
+  angebot_gueltig_tage: number;
 }
 
 // ---------- Firma ----------
@@ -54,9 +62,11 @@ export async function speichereFirma(f: Firma) {
   const db = await getDb();
   await db.execute(
     `UPDATE firma SET name=$1, strasse=$2, plz=$3, ort=$4, uid=$5, email=$6, telefon=$7, iban=$8, bic=$9,
-       mittellohn_cent=$10, materialzuschlag_prozent=$11, gesamtzuschlag_prozent=$12, zahlungsziel_tage=$13 WHERE id = 1`,
+       mittellohn_cent=$10, materialzuschlag_prozent=$11, gesamtzuschlag_prozent=$12, zahlungsziel_tage=$13,
+       firmenbuch=$14, gericht=$15, bank=$16, web=$17, unterzeichner=$18, angebot_gueltig_tage=$19 WHERE id = 1`,
     [f.name, f.strasse, f.plz, f.ort, f.uid, f.email, f.telefon, f.iban, f.bic,
-     f.mittellohn_cent, f.materialzuschlag_prozent, f.gesamtzuschlag_prozent, f.zahlungsziel_tage],
+     f.mittellohn_cent, f.materialzuschlag_prozent, f.gesamtzuschlag_prozent, f.zahlungsziel_tage,
+     f.firmenbuch, f.gericht, f.bank, f.web, f.unterzeichner, f.angebot_gueltig_tage],
   );
 }
 
@@ -71,18 +81,19 @@ export async function listeKunden(suche = ""): Promise<Kunde[]> {
 
 export async function speichereKunde(k: Kunde): Promise<number> {
   const db = await getDb();
-  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid, k.email, k.telefon, k.reverse_charge, k.notiz];
+  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid, k.email, k.telefon, k.reverse_charge, k.notiz,
+    k.firmenbuch, k.anrede];
   if (k.id) {
     await db.execute(
       `UPDATE kunde SET name=$1, ansprechperson=$2, strasse=$3, plz=$4, ort=$5, uid=$6, email=$7, telefon=$8,
-         reverse_charge=$9, notiz=$10 WHERE id=$11`,
+         reverse_charge=$9, notiz=$10, firmenbuch=$11, anrede=$12 WHERE id=$13`,
       [...werte, k.id],
     );
     return k.id;
   }
   const r = await db.execute(
-    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz, firmenbuch, anrede)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     werte,
   );
   return r.lastInsertId!;
@@ -198,6 +209,7 @@ export const projektStatus = [
 
 export interface Projekt {
   id?: number;
+  nummer?: number | null; // Projektnummer, erster Teil der Belegnummer (z. B. 10 in 10-12-26)
   kunde_id: number;
   kunde_name?: string;
   bezeichnung: string;
@@ -211,25 +223,33 @@ export async function listeProjekte(suche = "", status = ""): Promise<Projekt[]>
   const db = await getDb();
   return db.select<Projekt>(
     `SELECT p.*, k.name AS kunde_name FROM projekt p JOIN kunde k ON k.id = p.kunde_id
-     WHERE (p.bezeichnung LIKE $1 OR k.name LIKE $1 OR p.baustelle LIKE $1)
+     WHERE (p.bezeichnung LIKE $1 OR k.name LIKE $1 OR p.baustelle LIKE $1 OR CAST(p.nummer AS TEXT) = $3)
        AND ($2 = '' OR p.status = $2)
-     ORDER BY p.erstellt_am DESC, p.id DESC`,
-    [`%${suche}%`, status],
+     ORDER BY p.nummer DESC, p.id DESC`,
+    [`%${suche}%`, status, suche.trim()],
   );
+}
+
+/** Vorschlag für die nächste Projektnummer */
+export async function naechsteProjektnummer(): Promise<number> {
+  const db = await getDb();
+  const [{ n }] = await db.select<{ n: number | null }>("SELECT MAX(nummer) AS n FROM projekt");
+  return (n ?? 0) + 1;
 }
 
 export async function speichereProjekt(p: Projekt): Promise<number> {
   const db = await getDb();
-  const werte = [p.kunde_id, p.bezeichnung, p.baustelle, p.status, p.quelle];
+  const nummer = p.nummer || (await naechsteProjektnummer());
+  const werte = [p.kunde_id, p.bezeichnung, p.baustelle, p.status, p.quelle, nummer];
   if (p.id) {
     await db.execute(
-      "UPDATE projekt SET kunde_id=$1, bezeichnung=$2, baustelle=$3, status=$4, quelle=$5 WHERE id=$6",
+      "UPDATE projekt SET kunde_id=$1, bezeichnung=$2, baustelle=$3, status=$4, quelle=$5, nummer=$6 WHERE id=$7",
       [...werte, p.id],
     );
     return p.id;
   }
   const r = await db.execute(
-    "INSERT INTO projekt (kunde_id, bezeichnung, baustelle, status, quelle) VALUES ($1,$2,$3,$4,$5)",
+    "INSERT INTO projekt (kunde_id, bezeichnung, baustelle, status, quelle, nummer) VALUES ($1,$2,$3,$4,$5,$6)",
     werte,
   );
   return r.lastInsertId!;

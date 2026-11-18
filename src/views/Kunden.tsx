@@ -60,6 +60,8 @@ export default function Kunden() {
             {feld("uid", "UID-Nummer")}
             {feld("email", "E-Mail")}
             {feld("telefon", "Telefon")}
+            {feld("firmenbuch", "Firmenbuchnummer")}
+            {feld("anrede", "Anrede im Brief (z. B. Sehr geehrter Herr Muster,)")}
           </div>
           <label className="haken">
             <input type="checkbox" checked={!!form.reverse_charge}

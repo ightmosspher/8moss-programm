@@ -1,0 +1,73 @@
+# Baut fertige Installationsdateien für Mac und Windows und stellt sie unter
+# GitHub > Releases > "Vorschau" zum Herunterladen bereit (immer der neueste Stand).
+name: Installationsdatei bauen
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installationsdatei-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Intel-Mac-Rechner von GitHub sind leichter verfügbar; die .dmg läuft trotzdem auf allen Macs (Universal).
+          - os: macos-15-intel
+            name: 8moss-mac
+            args: --target universal-apple-darwin
+            bundle: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          - os: windows-latest
+            name: 8moss-windows
+            args: ""
+            bundle: |
+              src-tauri/target/release/bundle/msi/*.msi
+              src-tauri/target/release/bundle/nsis/*.exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ startsWith(matrix.os, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - run: npm run tauri build -- ${{ matrix.args }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.bundle }}
+          if-no-files-found: error
+
+      # Zum einfachen Herunterladen: Release "Vorschau" mit den neuesten Dateien
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: vorschau
+          name: Vorschau (neuester Stand)
+          prerelease: true
+          target_commitish: ${{ github.sha }}
+          body: |
+            Neueste Testversion des 8moss-Programms, gebaut aus `${{ github.ref_name }}` (${{ github.sha }}).
+            Mac: die .dmg-Datei. Windows: die .msi- oder -setup.exe-Datei.
+            Beim ersten Start siehe README (App ist noch nicht signiert).
+          files: ${{ matrix.bundle }}
+          overwrite_files: true

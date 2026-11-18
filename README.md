@@ -14,9 +14,25 @@ Grundgerüst (Version 0.1):
 - Einstellungen: Firmendaten und Kalkulationswerte
 - Lieferanten anlegen, bearbeiten, löschen
 - Projekte mit Kunde, Baustelle, Herkunft (direkt/ONLV) und Status, filterbar
-- Angebote, Bestellungen, Rechnungen: noch Platzhalter
+- Angebote: Positionen aus dem Katalog oder frei, Summen, Reverse Charge, Abschließen mit Nummer nach 8moss-Schema Projekt-Beleg-Jahr (z. B. 10-01-26), neue Version als Kopie
+- PDF im 8moss-Layout (nach Rechnungsvorlage RE1.1), gilt auch für Bestellung und Rechnung
+- Bestellungen, Rechnungen: noch Platzhalter
 
-## Starten
+## Installieren (ohne Entwickler-Werkzeuge)
+
+Bei jeder Änderung baut GitHub automatisch fertige Installationsdateien:
+
+1. Im Repository rechts auf **Releases** und dann **Vorschau (neuester Stand)** klicken.
+2. Unter **Assets** die passende Datei herunterladen:
+3. Mac: `.dmg`, Windows: `.msi` oder `-setup.exe`.
+
+Das Programm ist noch nicht signiert. Beim ersten Start daher:
+
+- **Mac:** Programm in den Ordner „Programme“ ziehen, dann mit Rechtsklick > **Öffnen** starten und bestätigen.
+  Falls „beschädigt“ gemeldet wird, einmal im Terminal ausführen: `xattr -cr /Applications/8moss.app`
+- **Windows:** Bei „Der Computer wurde durch Windows geschützt“ auf **Weitere Informationen** > **Trotzdem ausführen**.
+
+## Starten (für Entwicklung)
 
 Voraussetzungen (einmalig): [Node.js](https://nodejs.org) ab Version 20 und
 [Rust](https://rustup.rs). Auf dem Mac zusätzlich `xcode-select --install`,
@@ -42,6 +58,8 @@ npm run dev            # dann http://localhost:1420 öffnen
 | `src/db/index.ts` | Datenbankzugriff (Tauri-SQLite oder sql.js im Browser). Später hier Umstieg auf Server/Cloud. |
 | `src/db/repo.ts` | Lesen und Speichern von Kunden, Katalog, Firma |
 | `src/db/geld.ts` | Beträge in Cent, Formatierung, Einheitspreis-Kalkulation |
+| `src/db/belege.ts` | Belege: Entwurf speichern, abschließen, Nummer Projekt-Beleg-Jahr |
+| `src/pdf/BelegPdf.tsx` | Druckvorlage im 8moss-Layout (Schrift: Helvetica) |
 | `src/views/` | Bildschirme (Kunden, Positionskatalog, Einstellungen, …) |
 | `src-tauri/` | Desktop-Hülle (Rust), Fenster, Rechte, Installationspakete |
 
@@ -51,7 +69,6 @@ Windows: `%APPDATA%\at.8moss.programm\`).
 
 ## Nächste Schritte
 
-1. Angebot aus Katalogpositionen, PDF im 8moss-Layout
-2. Automatische Datensicherung
-3. Rechnung mit ebInterface und Reverse Charge
-4. ONLV-Import und -Export (ÖNORM A 2063-2)
+1. Automatische Datensicherung
+2. Rechnung mit ebInterface und Reverse Charge
+3. ONLV-Import und -Export (ÖNORM A 2063-2)

@@ -24,6 +24,7 @@ export default function Einstellungen() {
       materialzuschlag_prozent: Number(String(f!.materialzuschlag_prozent).replace(",", ".")) || 0,
       gesamtzuschlag_prozent: Number(String(f!.gesamtzuschlag_prozent).replace(",", ".")) || 0,
       zahlungsziel_tage: Number(f!.zahlungsziel_tage) || 0,
+      angebot_gueltig_tage: Number(f!.angebot_gueltig_tage) || 30,
     });
     setGespeichert(true);
   }
@@ -41,8 +42,13 @@ export default function Einstellungen() {
           {feld("ort", "Ort")}
           {feld("telefon", "Telefon")}
           {feld("email", "E-Mail")}
+          {feld("web", "Webseite")}
+          {feld("firmenbuch", "Firmenbuchnummer (z. B. FN123456a)")}
+          {feld("gericht", "Firmenbuchgericht (z. B. HG Ried im Innkreis)")}
+          {feld("bank", "Bank")}
           {feld("iban", "IBAN")}
           {feld("bic", "BIC")}
+          {feld("unterzeichner", "Name unter dem Gruß")}
         </div>
         <h2>Kalkulation</h2>
         <div className="raster">
@@ -50,6 +56,7 @@ export default function Einstellungen() {
           {feld("materialzuschlag_prozent", "Materialzuschlag %")}
           {feld("gesamtzuschlag_prozent", "Gesamtzuschlag %")}
           {feld("zahlungsziel_tage", "Zahlungsziel (Tage)")}
+          {feld("angebot_gueltig_tage", "Angebot gültig (Tage)")}
         </div>
         <div className="knoepfe">
           <button className="primaer" onClick={speichern}>Speichern</button>
