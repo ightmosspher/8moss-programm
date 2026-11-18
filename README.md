@@ -14,7 +14,21 @@ Grundgerüst (Version 0.1):
 - Einstellungen: Firmendaten und Kalkulationswerte
 - Projekte, Angebote, Lieferanten, Bestellungen, Rechnungen: noch Platzhalter
 
-## Starten
+## Installieren (ohne Entwickler-Werkzeuge)
+
+Bei jeder Änderung baut GitHub automatisch fertige Installationsdateien:
+
+1. Im Repository oben auf **Actions** klicken, dann **Installationsdatei bauen**.
+2. Den obersten Lauf mit grünem Haken öffnen.
+3. Unten bei **Artifacts** `8moss-mac` (.dmg) oder `8moss-windows` (.msi/.exe) herunterladen und entpacken.
+
+Das Programm ist noch nicht signiert. Beim ersten Start daher:
+
+- **Mac:** Programm in den Ordner „Programme“ ziehen, dann mit Rechtsklick > **Öffnen** starten und bestätigen.
+  Falls „beschädigt“ gemeldet wird, einmal im Terminal ausführen: `xattr -cr /Applications/8moss.app`
+- **Windows:** Bei „Der Computer wurde durch Windows geschützt“ auf **Weitere Informationen** > **Trotzdem ausführen**.
+
+## Starten (für Entwicklung)
 
 Voraussetzungen (einmalig): [Node.js](https://nodejs.org) ab Version 20 und
 [Rust](https://rustup.rs). Auf dem Mac zusätzlich `xcode-select --install`,
