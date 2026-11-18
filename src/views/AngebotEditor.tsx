@@ -6,6 +6,11 @@ import {
 import { centZuText, einheitspreis, euro, zuCent } from "../db/geld";
 import { Firma, KatalogPosition, Kunde, ladeFirma, listeKatalog, listeKunden, listeProjekte, Projekt } from "../db/repo";
 import { pdfSpeichern } from "../pdf/erzeugen";
+import { Kalkulation } from "../db/aufbau";
+import Kalkulator from "../components/Kalkulator";
+import Icon from "../components/Icon";
+import { landName } from "../lib/laender";
+import { ohneUst, Steuerfall, steuerfaelle, steuerfallVon, steuerfallVorschlag } from "../lib/steuer";
 
 interface Props { id?: number; schliessen: () => void; oeffne: (id: number) => void }
 
@@ -26,6 +31,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
   const [katalogWahl, setKatalogWahl] = useState("");
   const [meldung, setMeldung] = useState<{ art: "ok" | "fehler"; text: string } | null>(null);
   const [geaendert, setGeaendert] = useState(false);
+  const [kalk, setKalk] = useState<{ index: number | null; start: Kalkulation | null } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -40,7 +46,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
         setBeleg({
           art: "angebot", datum: heute(), status: "entwurf", ust_prozent: 20,
           projekt_id: projekt?.id ?? null, kunde_id: projekt?.kunde_id ?? null,
-          reverse_charge: kunde?.reverse_charge ?? 0, anrede: kunde?.anrede || "Sehr geehrte Damen und Herren,",
+          reverse_charge: kunde?.reverse_charge ?? 0, steuerfall: steuerfallVorschlag(kunde), anrede: kunde?.anrede || "Sehr geehrte Damen und Herren,",
           zahlungsziel_tage: f.zahlungsziel_tage,
           ...angebotTexte(f, projekt),
         });
@@ -54,7 +60,8 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
     () => pos.map((p) => ({ ...p, menge: zahl(p.mengeText), einheitspreis_cent: zuCent(p.preisText) })),
     [pos],
   );
-  const sum = summen(positionen, beleg?.ust_prozent ?? 20, !!beleg?.reverse_charge);
+  const fall: Steuerfall = beleg ? steuerfallVon(beleg) : "inland";
+  const sum = summen(positionen, beleg?.ust_prozent ?? 20, ohneUst(fall));
 
   if (!beleg || !firma) return <p>Lade …</p>;
 
@@ -64,7 +71,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
   function projektWaehlen(pid: number) {
     const p = projekte.find((x) => x.id === pid);
     const k = kunden.find((x) => x.id === p?.kunde_id);
-    setB({ projekt_id: pid, kunde_id: p?.kunde_id, reverse_charge: k?.reverse_charge ?? 0,
+    setB({ projekt_id: pid, kunde_id: p?.kunde_id, reverse_charge: k?.reverse_charge ?? 0, steuerfall: steuerfallVorschlag(k),
       anrede: k?.anrede || beleg!.anrede, ...angebotTexte(firma!, p) });
   }
 
@@ -74,6 +81,11 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
     const ep = einheitspreis({ lohn_minuten: k.lohn_minuten, material_cent: k.material_cent ?? 0, sonstiges_cent: k.sonstiges_cent, ...firma! });
     setPos([...pos, zuEdit({ kurztext: k.kurztext, langtext: k.langtext, einheit: k.einheit, menge: 1, einheitspreis_cent: ep, katalog_position_id: k.id })]);
     setKatalogWahl(""); setGeaendert(true);
+  }
+  function kalkulationUebernehmen(p: BelegPosition) {
+    if (kalk?.index != null) setPos(pos.map((x, j) => (j === kalk.index ? { ...zuEdit(p), offen: x.offen } : x)));
+    else setPos([...pos, zuEdit(p)]);
+    setKalk(null); setGeaendert(true);
   }
   const freiePosition = () => { setPos([...pos, { ...zuEdit({ kurztext: "", einheit: "pausch", menge: 1, einheitspreis_cent: 0 }), offen: true }]); setGeaendert(true); };
   const verschiebe = (i: number, d: number) => {
@@ -113,12 +125,12 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
   return (
     <section>
       <div className="kopf">
-        <button onClick={schliessen}>← Angebote</button>
+        <button onClick={schliessen}><Icon name="zurueck" size={16} /> Angebote</button>
         <h1>{beleg.belegnummer ? `Angebot ${beleg.belegnummer}` : "Angebot (Entwurf)"}</h1>
         {!gesperrt && <button onClick={speichern} disabled={!geaendert && !!beleg.id}>Speichern</button>}
-        <button onClick={pdf}>PDF</button>
-        {!gesperrt && <button className="primaer" onClick={abschliessen}>Abschließen</button>}
-        {gesperrt && <button className="primaer" onClick={async () => oeffne(await kopiereBeleg(beleg.id!))}>Als neue Version kopieren</button>}
+        <button onClick={pdf}><Icon name="pdf" size={16} /> PDF</button>
+        {!gesperrt && <button className="primaer" onClick={abschliessen}><Icon name="schloss" size={16} /> Abschließen</button>}
+        {gesperrt && <button className="primaer" onClick={async () => oeffne(await kopiereBeleg(beleg.id!))}><Icon name="kopie" size={16} /> Als neue Version kopieren</button>}
       </div>
 
       {meldung && <div className={meldung.art === "fehler" ? "fehler" : "erfolg"}>{meldung.text}</div>}
@@ -141,10 +153,26 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
           <label className="breit">Anrede<input disabled={gesperrt} value={beleg.anrede ?? ""} onChange={(e) => setB({ anrede: e.target.value })} /></label>
           <label className="breit">Einleitung<textarea rows={2} disabled={gesperrt} value={beleg.vortext ?? ""} onChange={(e) => setB({ vortext: e.target.value })} /></label>
         </div>
-        <label className="haken">
-          <input type="checkbox" disabled={gesperrt} checked={!!beleg.reverse_charge} onChange={(e) => setB({ reverse_charge: e.target.checked ? 1 : 0 })} />
-          Reverse Charge (keine USt, Hinweis nach § 19 Abs. 1a UStG)
-        </label>
+        <div className="raster">
+          <label>
+            Steuer
+            <select disabled={gesperrt} value={fall} onChange={(e) => setB({ steuerfall: e.target.value as Steuerfall, reverse_charge: e.target.value === "rc_bau" ? 1 : 0 })}>
+              {steuerfaelle.map((x) => <option key={x.wert} value={x.wert}>{x.text}</option>)}
+            </select>
+          </label>
+          {kunde && (
+            <label>Kunde sitzt in<input disabled value={`${landName(kunde.land)}${kunde.uid ? `, UID ${kunde.uid}` : ", ohne UID"}`} /></label>
+          )}
+        </div>
+        {!gesperrt && kunde && kunde.land && kunde.land !== "AT" && (
+          <div className="info-box">
+            Ausländischer Kunde: Liegt die Baustelle in Österreich, gilt österreichische USt (Inland bzw. Reverse Charge bei Bauunternehmern).
+            Ohne USt nur bei Leistung im Ausland oder Lieferung ins Ausland. Im Zweifel mit der Steuerberatung abklären.
+          </div>
+        )}
+        {!gesperrt && fall !== steuerfallVorschlag(kunde) && (
+          <div className="hinweis-box">Laut Kundendaten wäre „{steuerfaelle.find((x) => x.wert === steuerfallVorschlag(kunde))?.text}“ üblich.</div>
+        )}
       </div>
 
       <table className="positionen">
@@ -159,6 +187,11 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
               <td><input className="sehrschmal" disabled={gesperrt} value={p.einheit ?? ""} onChange={(e) => setP(i, { einheit: e.target.value })} /></td>
               <td className="leistung">
                 <input disabled={gesperrt} placeholder="Kurztext" value={p.kurztext} onChange={(e) => setP(i, { kurztext: e.target.value })} />
+                {p.kalkulation && !gesperrt && (
+                  <button className="link" onClick={() => setKalk({ index: i, start: JSON.parse(p.kalkulation!) })}>
+                    <Icon name="rechner" size={13} /> Kalkulation öffnen
+                  </button>
+                )}
                 {(p.offen || gesperrt) ? (
                   <textarea rows={Math.max(3, (p.langtext ?? "").split("\n").length + 1)} disabled={gesperrt} placeholder="Langtext" value={p.langtext ?? ""} onChange={(e) => setP(i, { langtext: e.target.value })} />
                 ) : (
@@ -169,9 +202,9 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
               <td className="zahl">{euro(positionGesamt(positionen[i]))}</td>
               {!gesperrt && (
                 <td className="aktionen">
-                  <button disabled={i === 0} onClick={() => verschiebe(i, -1)} title="nach oben">↑</button>
-                  <button disabled={i === pos.length - 1} onClick={() => verschiebe(i, 1)} title="nach unten">↓</button>
-                  <button onClick={() => { setPos(pos.filter((_, j) => j !== i)); setGeaendert(true); }} title="entfernen">✕</button>
+                  <button className="symbol" disabled={i === 0} onClick={() => verschiebe(i, -1)} title="nach oben"><Icon name="hoch" size={14} /></button>
+                  <button className="symbol" disabled={i === pos.length - 1} onClick={() => verschiebe(i, 1)} title="nach unten"><Icon name="runter" size={14} /></button>
+                  <button className="symbol" onClick={() => { setPos(pos.filter((_, j) => j !== i)); setGeaendert(true); }} title="entfernen"><Icon name="muell" size={14} /></button>
                 </td>
               )}
             </tr>
@@ -180,7 +213,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
         </tbody>
         <tfoot>
           <tr><td colSpan={5} className="zahl">Summe netto</td><td className="zahl">{euro(sum.netto)}</td>{!gesperrt && <td></td>}</tr>
-          <tr><td colSpan={5} className="zahl">{beleg.reverse_charge ? "USt. (Reverse Charge)" : `USt. ${beleg.ust_prozent}%`}</td><td className="zahl">{euro(sum.ust)}</td>{!gesperrt && <td></td>}</tr>
+          <tr><td colSpan={5} className="zahl">{ohneUst(fall) ? `USt. (${steuerfaelle.find((x) => x.wert === fall)?.text})` : `USt. ${beleg.ust_prozent}%`}</td><td className="zahl">{euro(sum.ust)}</td>{!gesperrt && <td></td>}</tr>
           <tr><td colSpan={5} className="zahl"><strong>Summe brutto</strong></td><td className="zahl"><strong>{euro(sum.brutto)}</strong></td>{!gesperrt && <td></td>}</tr>
         </tfoot>
       </table>
@@ -192,9 +225,13 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
             {katalog.map((k) => <option key={k.id} value={k.id}>{[k.nummer, k.kurztext].filter(Boolean).join("  ")}</option>)}
           </select>
           <button onClick={ausKatalog} disabled={!katalogWahl}>Hinzufügen</button>
-          <button onClick={freiePosition}>Freie Position</button>
+          <span className="trenner" />
+          <button className="betont" onClick={() => setKalk({ index: null, start: null })}><Icon name="rechner" size={16} /> Bauteil kalkulieren</button>
+          <button onClick={freiePosition}><Icon name="plus" size={16} /> Freie Position</button>
         </div>
       )}
+
+      {kalk && <Kalkulator firma={firma} start={kalk.start} uebernehmen={kalkulationUebernehmen} schliessen={() => setKalk(null)} />}
 
       <div className="formular">
         <div className="raster">

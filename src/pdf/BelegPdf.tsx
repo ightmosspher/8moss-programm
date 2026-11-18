@@ -7,6 +7,8 @@ import { Document, Font, Image, Page, StyleSheet, Text, View } from "@react-pdf/
 import logo from "../assets/8moss-logo.png";
 import { Beleg, BelegPosition, positionGesamt, summen } from "../db/belege";
 import { Firma, Kunde } from "../db/repo";
+import { landName } from "../lib/laender";
+import { ohneUst, steuerfallVon, steuerHinweis } from "../lib/steuer";
 
 Font.registerHyphenationCallback((w) => [w]); // keine Silbentrennung
 
@@ -67,7 +69,11 @@ export interface BelegPdfDaten {
 
 export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten) {
   const t = titel[beleg.art];
-  const sum = summen(positionen, beleg.ust_prozent, !!beleg.reverse_charge);
+  const fall = steuerfallVon(beleg);
+  const keineUst = ohneUst(fall);
+  const hinweis = steuerHinweis(fall);
+  const sum = summen(positionen, beleg.ust_prozent, keineUst);
+  const ausland = (l?: string | null) => (l && l !== "AT" ? landName(l).toUpperCase() : null);
   const fuss1 = [firma.name, firma.strasse, [firma.plz, firma.ort].filter(Boolean).join(" "), firma.telefon, firma.email]
     .filter(Boolean).join(".:.") + ".:.";
   const fuss2 = [firma.firmenbuch, firma.uid, firma.gericht].filter(Boolean).join(".:.") + ".:.";
@@ -83,6 +89,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
           <Text style={s.fett}>{firma.name}</Text>
           {firma.strasse && <Text>{firma.strasse}</Text>}
           <Text>{[firma.plz, firma.ort].filter(Boolean).join(" ")}</Text>
+          {ausland(firma.land) && <Text>{landName(firma.land)}</Text>}
           {firma.uid && <Text>{firma.uid}</Text>}
         </View>
 
@@ -93,6 +100,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
               <Text style={s.fett}>{empfaenger.name}</Text>
               {empfaenger.strasse && <Text>{empfaenger.strasse}</Text>}
               <Text>{[empfaenger.plz, empfaenger.ort].filter(Boolean).join(" ")}</Text>
+              {ausland(empfaenger.land) && <Text>{ausland(empfaenger.land)}</Text>}
               {empfaenger.firmenbuch && <Text>{empfaenger.firmenbuch}</Text>}
               {empfaenger.uid && <Text>{empfaenger.uid}</Text>}
             </>
@@ -131,7 +139,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
 
         <View wrap={false}>
           <View style={s.summe}><Text style={s.summeText}>Summe netto</Text><Text style={s.summeWert}>{euro(sum.netto)}</Text></View>
-          {beleg.reverse_charge ? (
+          {keineUst ? (
             <View style={s.summe}><Text style={s.summeText}>USt.</Text><Text style={s.summeWert}>{euro(0)}</Text></View>
           ) : (
             <View style={s.summe}><Text style={s.summeText}>USt. {beleg.ust_prozent}%</Text><Text style={s.summeWert}>{euro(sum.ust)}</Text></View>
@@ -141,10 +149,11 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
           </View>
         </View>
 
-        {beleg.reverse_charge ? (
+        {hinweis ? (
           <Text style={[s.text, s.absatz, { fontSize: 9 }]}>
-            Übergang der Steuerschuld auf den Leistungsempfänger gemäß § 19 Abs. 1a UStG.
-            {empfaenger?.uid ? ` UID-Nr. des Leistungsempfängers: ${empfaenger.uid}` : ""}
+            {hinweis}
+            {empfaenger?.uid ? ` UID-Nr. des Leistungsempfängers: ${empfaenger.uid}.` : ""}
+            {fall !== "rc_bau" && firma.uid ? ` UID-Nr. des Leistenden: ${firma.uid}.` : ""}
           </Text>
         ) : null}
 

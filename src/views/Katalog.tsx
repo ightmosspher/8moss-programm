@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { deaktiviereKatalogPosition, Firma, KatalogPosition, ladeFirma, listeKatalog, speichereKatalogPosition } from "../db/repo";
 import { centZuText, einheitspreis, euro, zuCent } from "../db/geld";
+import Schublade from "../components/Schublade";
+import Icon from "../components/Icon";
 
 interface Formular {
   id?: number;
@@ -67,13 +69,20 @@ export default function Katalog() {
   return (
     <section>
       <div className="kopf">
-        <h1>Positionskatalog</h1>
-        <input className="suche" placeholder="Suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} />
-        <button className="primaer" onClick={() => setForm({ ...leer })}>Neue Position</button>
+        <div className="titel"><h1>Positionskatalog</h1><span className="anzahl">{liste.length}</span></div>
+        <div className="suchfeld"><Icon name="suche" size={16} /><input placeholder="Nummer, Gruppe, Text …" value={suche} onChange={(e) => setSuche(e.target.value)} /></div>
+        <button className="primaer" onClick={() => setForm({ ...leer })}><Icon name="plus" size={16} /> Neue Position</button>
       </div>
 
+      <p className="seiten-info">Fertige Positionen mit Pauschalwerten. Für Wände, Decken und Böden mit Aufmaß nimm besser die Aufbauten.</p>
       {form && (
-        <div className="formular">
+        <Schublade titel={form.id ? form.kurztext : "Neue Position"} untertitel={form.nummer || "Nummer wird automatisch vergeben"}
+          schliessen={() => { setForm(null); setFehler(null); }}
+          fuss={<>
+            <button className="primaer" onClick={speichern}>Speichern</button>
+            <button onClick={() => { setForm(null); setFehler(null); }}>Abbrechen</button>
+            {form.id && <button className="gefahr" onClick={async () => { await deaktiviereKatalogPosition(form.id!); setForm(null); laden(); }}>Entfernen</button>}
+          </>}>
           <div className="raster">
             {t("nummer", "Nummer")}
             {t("gruppe", "Gruppe (z. B. Trockenbau)")}
@@ -98,16 +107,11 @@ export default function Katalog() {
             {firma && <> (Mittellohn {euro(firma.mittellohn_cent)}/h, Materialzuschlag {firma.materialzuschlag_prozent} %, Gesamtzuschlag {firma.gesamtzuschlag_prozent} %)</>}
           </p>
           {fehler && <div className="fehler">{fehler}</div>}
-          <div className="knoepfe">
-            <button className="primaer" onClick={speichern}>Speichern</button>
-            <button onClick={() => { setForm(null); setFehler(null); }}>Abbrechen</button>
-            {form.id && <button className="gefahr" onClick={async () => { await deaktiviereKatalogPosition(form.id!); setForm(null); laden(); }}>Entfernen</button>}
-          </div>
-        </div>
+        </Schublade>
       )}
 
       {liste.length === 0 ? (
-        <div className="leer">Noch keine Positionen. Lege mit „Neue Position“ die erste an.</div>
+        <div className="leer"><Icon name="katalog" size={32} /><p>Noch keine Positionen.</p></div>
       ) : (
         <table>
           <thead><tr><th>Nr.</th><th>Gruppe</th><th>Kurztext</th><th>Einheit</th><th className="zahl">Lohn min</th><th className="zahl">Material</th><th className="zahl">Einheitspreis</th></tr></thead>

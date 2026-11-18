@@ -16,6 +16,15 @@ Grundgerüst (Version 0.1):
 - Projekte mit Kunde, Baustelle, Herkunft (direkt/ONLV) und Status, filterbar
 - Angebote: Positionen aus dem Katalog oder frei, Summen, Reverse Charge, Abschließen mit Nummer nach 8moss-Schema Projekt-Beleg-Jahr (z. B. 10-01-26), neue Version als Kopie
 - PDF im 8moss-Layout (nach Rechnungsvorlage RE1.1), gilt auch für Bestellung und Rechnung
+
+Neu in Version 0.2:
+
+- Startseite mit offenen Angeboten, Anfragen, Aufträgen, zuletzt bearbeiteten Belegen und offenen Aufgaben
+- Neue Optik: dunkle Seitenleiste mit Symbolen, Detailansichten als Seitenfenster
+- Land bei Kunden, Lieferanten und Firma, UID-Prüfung, Steuerfall je Beleg (Inland, Reverse Charge Bau, EU-Leistung, innergemeinschaftliche Lieferung, Drittland) mit passendem Hinweis im PDF
+- Nummernkreise für Kunden (K-0001), Lieferanten (L-0001), Artikel (A-00001), Positionen (P-0001) und Aufbauten (B-001), einstellbar
+- Artikel (Material) mit Einkaufspreis, Lieferant und Gruppe
+- Bauteilkalkulation Wand, Decke, Boden: Aufbau (Material je m² mit Verschnitt und Arbeitszeit) × Aufmaß (mit Abzug von Öffnungen), Übernahme ins Angebot, später wieder öffnen; fünf Beispiel-Aufbauten (Preise noch einzutragen)
 - Bestellungen, Rechnungen: noch Platzhalter
 
 ## Installieren (ohne Entwickler-Werkzeuge)

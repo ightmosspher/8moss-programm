@@ -1,6 +1,6 @@
 [package]
 name = "achtmoss-programm"
-version = "0.1.0"
+version = "0.2.0"
 description = "8moss: Ausschreibung, Angebot, Bestellung, Rechnung"
 authors = ["8moss"]
 edition = "2024"
