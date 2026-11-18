@@ -104,7 +104,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
   async function pdf() {
     try {
       const empf = beleg!.adresse_snapshot ? (JSON.parse(beleg!.adresse_snapshot) as Kunde) : kunde;
-      const name = `${beleg!.nummer ?? "Angebot-Entwurf"}_${(empf?.name ?? "").replace(/[^\wäöüÄÖÜß-]+/g, "_")}.pdf`;
+      const name = `${beleg!.belegnummer ? `Angebot_${beleg!.belegnummer}` : "Angebot-Entwurf"}_${(empf?.name ?? "").replace(/[^\wäöüÄÖÜß-]+/g, "_")}.pdf`;
       const pfad = await pdfSpeichern({ beleg: beleg!, positionen, firma: firma!, empfaenger: empf }, name);
       if (pfad) setMeldung({ art: "ok", text: `PDF gespeichert: ${pfad}` });
     } catch (e) { setMeldung({ art: "fehler", text: `PDF konnte nicht erstellt werden: ${e}` }); }
@@ -114,7 +114,7 @@ export default function AngebotEditor({ id, schliessen, oeffne }: Props) {
     <section>
       <div className="kopf">
         <button onClick={schliessen}>← Angebote</button>
-        <h1>{beleg.nummer ? `Angebot ${beleg.nummer}` : "Angebot (Entwurf)"}</h1>
+        <h1>{beleg.belegnummer ? `Angebot ${beleg.belegnummer}` : "Angebot (Entwurf)"}</h1>
         {!gesperrt && <button onClick={speichern} disabled={!geaendert && !!beleg.id}>Speichern</button>}
         <button onClick={pdf}>PDF</button>
         {!gesperrt && <button className="primaer" onClick={abschliessen}>Abschließen</button>}

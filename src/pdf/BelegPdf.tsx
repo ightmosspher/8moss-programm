@@ -74,7 +74,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
   const zahlungsziel = beleg.zahlungsziel_tage ?? firma.zahlungsziel_tage;
 
   return (
-    <Document title={`${t.name} ${beleg.nummer ?? "Entwurf"} ${firma.name}`} author={firma.unterzeichner ?? firma.name}>
+    <Document title={`${t.name} ${beleg.belegnummer ?? "Entwurf"} ${firma.name}`} author={firma.unterzeichner ?? firma.name}>
       <Page size="A4" style={s.seite}>
         {/* Logo auf jeder Seite oben rechts */}
         <Image src={logo} style={s.logo} fixed />
@@ -100,7 +100,7 @@ export function BelegPdf({ beleg, positionen, firma, empfaenger }: BelegPdfDaten
         </View>
 
         <Text style={[s.datum, { marginTop: 22 }]}>{datumAT(beleg.datum)}</Text>
-        <Text style={s.nummer}>{t.name} Nr.: {beleg.nummer ?? "ENTWURF"}</Text>
+        <Text style={s.nummer}>{t.name} Nr.: {beleg.belegnummer ?? "ENTWURF"}</Text>
 
         {beleg.anrede && <Text style={[s.text, s.absatz]}>{beleg.anrede}</Text>}
         {beleg.vortext && <Text style={[s.text, s.absatz]}>{beleg.vortext}</Text>}

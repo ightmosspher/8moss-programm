@@ -32,7 +32,7 @@ export default function Angebote() {
           <tbody>
             {liste.map((b) => (
               <tr key={b.id} onClick={() => setOffen(b.id!)}>
-                <td>{b.nummer ?? <span className="hinweis">Entwurf</span>}</td>
+                <td>{b.belegnummer ?? <span className="hinweis">Entwurf</span>}</td>
                 <td>{datumAT(b.datum)}</td>
                 <td>{b.kunde_name}</td>
                 <td>{b.projekt_bezeichnung}</td>

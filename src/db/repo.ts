@@ -209,6 +209,7 @@ export const projektStatus = [
 
 export interface Projekt {
   id?: number;
+  nummer?: number | null; // Projektnummer, erster Teil der Belegnummer (z. B. 10 in 10-12-26)
   kunde_id: number;
   kunde_name?: string;
   bezeichnung: string;
@@ -222,25 +223,33 @@ export async function listeProjekte(suche = "", status = ""): Promise<Projekt[]>
   const db = await getDb();
   return db.select<Projekt>(
     `SELECT p.*, k.name AS kunde_name FROM projekt p JOIN kunde k ON k.id = p.kunde_id
-     WHERE (p.bezeichnung LIKE $1 OR k.name LIKE $1 OR p.baustelle LIKE $1)
+     WHERE (p.bezeichnung LIKE $1 OR k.name LIKE $1 OR p.baustelle LIKE $1 OR CAST(p.nummer AS TEXT) = $3)
        AND ($2 = '' OR p.status = $2)
-     ORDER BY p.erstellt_am DESC, p.id DESC`,
-    [`%${suche}%`, status],
+     ORDER BY p.nummer DESC, p.id DESC`,
+    [`%${suche}%`, status, suche.trim()],
   );
+}
+
+/** Vorschlag für die nächste Projektnummer */
+export async function naechsteProjektnummer(): Promise<number> {
+  const db = await getDb();
+  const [{ n }] = await db.select<{ n: number | null }>("SELECT MAX(nummer) AS n FROM projekt");
+  return (n ?? 0) + 1;
 }
 
 export async function speichereProjekt(p: Projekt): Promise<number> {
   const db = await getDb();
-  const werte = [p.kunde_id, p.bezeichnung, p.baustelle, p.status, p.quelle];
+  const nummer = p.nummer || (await naechsteProjektnummer());
+  const werte = [p.kunde_id, p.bezeichnung, p.baustelle, p.status, p.quelle, nummer];
   if (p.id) {
     await db.execute(
-      "UPDATE projekt SET kunde_id=$1, bezeichnung=$2, baustelle=$3, status=$4, quelle=$5 WHERE id=$6",
+      "UPDATE projekt SET kunde_id=$1, bezeichnung=$2, baustelle=$3, status=$4, quelle=$5, nummer=$6 WHERE id=$7",
       [...werte, p.id],
     );
     return p.id;
   }
   const r = await db.execute(
-    "INSERT INTO projekt (kunde_id, bezeichnung, baustelle, status, quelle) VALUES ($1,$2,$3,$4,$5)",
+    "INSERT INTO projekt (kunde_id, bezeichnung, baustelle, status, quelle, nummer) VALUES ($1,$2,$3,$4,$5,$6)",
     werte,
   );
   return r.lastInsertId!;

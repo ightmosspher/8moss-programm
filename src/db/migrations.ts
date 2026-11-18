@@ -210,4 +210,19 @@ INSERT INTO nummernkreis (art, praefix, jahr, naechste_nummer) VALUES
   ('gutschrift', 'GU', CAST(strftime('%Y','now') AS INTEGER), 1);
 `,
   },
+  {
+    version: 3,
+    name: "8moss-Nummernschema Projekt-Beleg-Jahr",
+    sql: `
+-- Projektnummer (z. B. 10), läuft fortlaufend
+ALTER TABLE projekt ADD COLUMN nummer INTEGER;
+UPDATE projekt SET nummer = id;
+CREATE UNIQUE INDEX ux_projekt_nummer ON projekt(nummer);
+
+-- Belegnummer wie gedruckt, z. B. 10-12-26 (Projekt-laufender Beleg im Projekt-Jahr).
+-- Eindeutig je Belegart; die alte Spalte nummer hält intern art:belegnummer.
+ALTER TABLE beleg ADD COLUMN belegnummer TEXT;
+CREATE UNIQUE INDEX ux_beleg_art_belegnummer ON beleg(art, belegnummer);
+`,
+  },
 ];

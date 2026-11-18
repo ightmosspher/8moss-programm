@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Kunde, listeKunden, listeProjekte, loescheProjekt, Projekt, projektStatus, speichereProjekt } from "../db/repo";
+import { Kunde, listeKunden, listeProjekte, loescheProjekt, naechsteProjektnummer, Projekt, projektStatus, speichereProjekt } from "../db/repo";
 
 const statusText = (s: string) => projektStatus.find((x) => x.wert === s)?.text ?? s;
 
@@ -15,9 +15,10 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
   useEffect(() => { laden(); }, [suche, filter]);
   useEffect(() => { listeKunden().then(setKunden); }, []);
 
-  function neu() {
+  async function neu() {
     setFehler(null);
-    setForm({ kunde_id: kunden[0]?.id ?? 0, bezeichnung: "", baustelle: "", status: "anfrage", quelle: "direkt" });
+    const nummer = await naechsteProjektnummer();
+    setForm({ nummer, kunde_id: kunden[0]?.id ?? 0, bezeichnung: "", baustelle: "", status: "anfrage", quelle: "direkt" });
   }
 
   async function speichern() {
@@ -30,7 +31,7 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
       setFehler(null);
       laden();
     } catch (e) {
-      setFehler(String(e));
+      setFehler(String(e).includes("UNIQUE") ? "Diese Projektnummer ist schon vergeben." : String(e));
     }
   }
 
@@ -69,6 +70,10 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
       {form && kunden.length > 0 && (
         <div className="formular">
           <div className="raster">
+            <label>
+              Projektnummer
+              <input value={form.nummer ?? ""} onChange={(e) => setForm({ ...form, nummer: Number(e.target.value.replace(/\D/g, "")) || null })} />
+            </label>
             <label className="breit">
               Bezeichnung *
               <input value={form.bezeichnung} placeholder="z. B. Büroausbau 3. OG"
@@ -112,10 +117,11 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
         <div className="leer">{suche || filter ? "Keine passenden Projekte." : "Noch keine Projekte. Lege mit „Neues Projekt“ das erste an."}</div>
       ) : (
         <table>
-          <thead><tr><th>Bezeichnung</th><th>Kunde</th><th>Baustelle</th><th>Herkunft</th><th>Status</th><th>Angelegt</th></tr></thead>
+          <thead><tr><th>Nr.</th><th>Bezeichnung</th><th>Kunde</th><th>Baustelle</th><th>Herkunft</th><th>Status</th><th>Angelegt</th></tr></thead>
           <tbody>
             {liste.map((p) => (
               <tr key={p.id} onClick={() => { setFehler(null); setForm(p); }}>
+                <td>{p.nummer}</td>
                 <td>{p.bezeichnung}</td>
                 <td>{p.kunde_name}</td>
                 <td>{p.baustelle}</td>

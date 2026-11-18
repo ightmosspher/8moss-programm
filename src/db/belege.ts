@@ -22,7 +22,8 @@ export interface BelegPosition {
 export interface Beleg {
   id?: number;
   art: BelegArt;
-  nummer?: string | null;
+  nummer?: string | null; // intern: art:belegnummer
+  belegnummer?: string | null; // wie gedruckt, z. B. 10-12-26
   projekt_id?: number | null;
   kunde_id?: number | null;
   datum: string; // YYYY-MM-DD
@@ -56,7 +57,7 @@ export async function listeBelege(art: BelegArt, suche = ""): Promise<Beleg[]> {
   return db.select<Beleg>(
     `SELECT b.*, k.name AS kunde_name, p.bezeichnung AS projekt_bezeichnung
      FROM beleg b LEFT JOIN kunde k ON k.id = b.kunde_id LEFT JOIN projekt p ON p.id = b.projekt_id
-     WHERE b.art = $1 AND (COALESCE(b.nummer,'') LIKE $2 OR COALESCE(k.name,'') LIKE $2 OR COALESCE(p.bezeichnung,'') LIKE $2)
+     WHERE b.art = $1 AND (COALESCE(b.belegnummer, b.nummer, '') LIKE $2 OR COALESCE(k.name,'') LIKE $2 OR COALESCE(p.bezeichnung,'') LIKE $2)
      ORDER BY b.datum DESC, b.id DESC`,
     [art, `%${suche}%`],
   );
@@ -112,19 +113,21 @@ export async function speichereEntwurf(b: Beleg, positionen: BelegPosition[]): P
   return id;
 }
 
-/** Nächste Nummer aus dem Nummernkreis, z. B. AN-2026-001. Beginnt jedes Jahr bei 1. */
-async function naechsteNummer(art: BelegArt): Promise<string> {
+/**
+ * 8moss-Nummernschema: Projektnummer - laufender Beleg dieser Art im Projekt - Jahr (2-stellig).
+ * Beispiel: 10-12-26 = Projekt 10, 12. Rechnung im Projekt, 2026.
+ */
+async function naechsteNummer(b: Beleg): Promise<string> {
   const db = await getDb();
-  const jahr = new Date().getFullYear();
-  await db.execute(
-    "UPDATE nummernkreis SET jahr = $1, naechste_nummer = 1 WHERE art = $2 AND jahr <> $1",
-    [jahr, art],
+  if (!b.projekt_id) throw new Error("Der Beleg braucht ein Projekt, um eine Nummer zu bekommen.");
+  const [{ projektnr, anzahl }] = await db.select<{ projektnr: number; anzahl: number }>(
+    `SELECT p.nummer AS projektnr,
+            (SELECT COUNT(*) FROM beleg x WHERE x.projekt_id = p.id AND x.art = $2 AND x.status <> 'entwurf') AS anzahl
+     FROM projekt p WHERE p.id = $1`,
+    [b.projekt_id, b.art],
   );
-  const [r] = await db.select<{ praefix: string; nr: number }>(
-    "UPDATE nummernkreis SET naechste_nummer = naechste_nummer + 1 WHERE art = $1 RETURNING praefix, naechste_nummer - 1 AS nr",
-    [art],
-  );
-  return `${r.praefix}-${jahr}-${String(r.nr).padStart(3, "0")}`;
+  const jahr = b.datum.slice(2, 4);
+  return `${projektnr}-${String(anzahl + 1).padStart(2, "0")}-${jahr}`;
 }
 
 /**
@@ -135,11 +138,12 @@ export async function schliesseAb(id: number, kunde: Kunde | undefined): Promise
   const db = await getDb();
   const [b] = await db.select<Beleg>("SELECT * FROM beleg WHERE id = $1", [id]);
   if (b.status !== "entwurf") throw new Error("Beleg ist bereits abgeschlossen.");
-  const nummer = await naechsteNummer(b.art);
+  const nummer = await naechsteNummer(b);
   await db.execute(
-    `UPDATE beleg SET nummer = $1, status = 'abgeschlossen', abgeschlossen_am = datetime('now'), adresse_snapshot = $2
-     WHERE id = $3 AND status = 'entwurf'`,
-    [nummer, kunde ? JSON.stringify(kunde) : null, id],
+    `UPDATE beleg SET belegnummer = $1, nummer = $2, status = 'abgeschlossen', abgeschlossen_am = datetime('now'),
+       adresse_snapshot = $3
+     WHERE id = $4 AND status = 'entwurf'`,
+    [nummer, `${b.art}:${nummer}`, kunde ? JSON.stringify(kunde) : null, id],
   );
   if (b.art === "angebot" && b.projekt_id) {
     await db.execute("UPDATE projekt SET status = 'angebot' WHERE id = $1 AND status = 'anfrage'", [b.projekt_id]);
@@ -151,7 +155,7 @@ export async function schliesseAb(id: number, kunde: Kunde | undefined): Promise
 export async function kopiereBeleg(id: number): Promise<number> {
   const { beleg, positionen } = await ladeBeleg(id);
   return speichereEntwurf(
-    { ...beleg, id: undefined, nummer: null, status: "entwurf", datum: heute() },
+    { ...beleg, id: undefined, nummer: null, belegnummer: null, status: "entwurf", datum: heute() },
     positionen.map((p) => ({ ...p, id: undefined })),
   );
 }

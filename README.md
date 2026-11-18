@@ -14,7 +14,7 @@ Grundgerüst (Version 0.1):
 - Einstellungen: Firmendaten und Kalkulationswerte
 - Lieferanten anlegen, bearbeiten, löschen
 - Projekte mit Kunde, Baustelle, Herkunft (direkt/ONLV) und Status, filterbar
-- Angebote: Positionen aus dem Katalog oder frei, Summen, Reverse Charge, Abschließen mit fortlaufender Nummer (AN-2026-001), neue Version als Kopie
+- Angebote: Positionen aus dem Katalog oder frei, Summen, Reverse Charge, Abschließen mit Nummer nach 8moss-Schema Projekt-Beleg-Jahr (z. B. 10-01-26), neue Version als Kopie
 - PDF im 8moss-Layout (nach Rechnungsvorlage RE1.1), gilt auch für Bestellung und Rechnung
 - Bestellungen, Rechnungen: noch Platzhalter
 
@@ -58,7 +58,7 @@ npm run dev            # dann http://localhost:1420 öffnen
 | `src/db/index.ts` | Datenbankzugriff (Tauri-SQLite oder sql.js im Browser). Später hier Umstieg auf Server/Cloud. |
 | `src/db/repo.ts` | Lesen und Speichern von Kunden, Katalog, Firma |
 | `src/db/geld.ts` | Beträge in Cent, Formatierung, Einheitspreis-Kalkulation |
-| `src/db/belege.ts` | Belege: Entwurf speichern, abschließen, Nummernkreis |
+| `src/db/belege.ts` | Belege: Entwurf speichern, abschließen, Nummer Projekt-Beleg-Jahr |
 | `src/pdf/BelegPdf.tsx` | Druckvorlage im 8moss-Layout (Schrift: Helvetica) |
 | `src/views/` | Bildschirme (Kunden, Positionskatalog, Einstellungen, …) |
 | `src-tauri/` | Desktop-Hülle (Rust), Fenster, Rechte, Installationspakete |
