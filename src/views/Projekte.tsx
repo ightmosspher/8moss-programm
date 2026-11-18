@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import Schublade from "../components/Schublade";
+import Icon from "../components/Icon";
+import { Beleg, listeBelegeZuProjekt } from "../db/belege";
+import { euro } from "../db/geld";
 import { Kunde, listeKunden, listeProjekte, loescheProjekt, naechsteProjektnummer, Projekt, projektStatus, speichereProjekt } from "../db/repo";
 
 const statusText = (s: string) => projektStatus.find((x) => x.wert === s)?.text ?? s;
@@ -10,6 +14,8 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
   const [filter, setFilter] = useState("");
   const [form, setForm] = useState<Projekt | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
+  const [belege, setBelege] = useState<Beleg[]>([]);
+  useEffect(() => { if (form?.id) listeBelegeZuProjekt(form.id).then(setBelege); else setBelege([]); }, [form?.id]);
 
   const laden = () => listeProjekte(suche, filter).then(setListe);
   useEffect(() => { laden(); }, [suche, filter]);
@@ -48,27 +54,30 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
   return (
     <section>
       <div className="kopf">
-        <h1>Projekte</h1>
+        <div className="titel"><h1>Projekte</h1><span className="anzahl">{liste.length}</span></div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="">Alle Status</option>
           {projektStatus.map((s) => <option key={s.wert} value={s.wert}>{s.text}</option>)}
         </select>
-        <input className="suche" placeholder="Suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} />
-        <button className="primaer" onClick={neu}>Neues Projekt</button>
+        <div className="suchfeld"><Icon name="suche" size={16} /><input placeholder="Nummer, Bezeichnung, Kunde …" value={suche} onChange={(e) => setSuche(e.target.value)} /></div>
+        <button className="primaer" onClick={neu}><Icon name="plus" size={16} /> Neues Projekt</button>
       </div>
 
       {form && kunden.length === 0 && (
-        <div className="formular">
+        <Schublade titel="Neues Projekt" schliessen={() => setForm(null)}
+          fuss={<><button className="primaer" onClick={zuKunden}>Zu den Kunden</button><button onClick={() => setForm(null)}>Abbrechen</button></>}>
           <p>Für ein Projekt brauchst du zuerst einen Kunden.</p>
-          <div className="knoepfe">
-            <button className="primaer" onClick={zuKunden}>Zu den Kunden</button>
-            <button onClick={() => setForm(null)}>Abbrechen</button>
-          </div>
-        </div>
+        </Schublade>
       )}
 
       {form && kunden.length > 0 && (
-        <div className="formular">
+        <Schublade titel={form.id ? `${form.nummer}  ${form.bezeichnung}` : "Neues Projekt"} untertitel={form.id ? form.kunde_name : undefined}
+          schliessen={() => { setForm(null); setFehler(null); }}
+          fuss={<>
+            <button className="primaer" onClick={speichern}>Speichern</button>
+            <button onClick={() => { setForm(null); setFehler(null); }}>Abbrechen</button>
+            {form.id && <button className="gefahr" onClick={() => loeschen(form)}>Löschen</button>}
+          </>}>
           <div className="raster">
             <label>
               Projektnummer
@@ -105,24 +114,38 @@ export default function Projekte({ zuKunden }: { zuKunden: () => void }) {
             </label>
           </div>
           {fehler && <div className="fehler">{fehler}</div>}
-          <div className="knoepfe">
-            <button className="primaer" onClick={speichern}>Speichern</button>
-            <button onClick={() => { setForm(null); setFehler(null); }}>Abbrechen</button>
-            {form.id && <button className="gefahr" onClick={() => loeschen(form)}>Löschen</button>}
-          </div>
-        </div>
+          {form.id && (
+            <>
+              <h3>Belege in diesem Projekt</h3>
+              {belege.length === 0 ? <p className="hinweis">Noch keine Belege. Angebote legst du unter Angebote an.</p> : (
+                <table className="klein">
+                  <tbody>
+                    {belege.map((b) => (
+                      <tr key={b.id} className="keinklick">
+                        <td>{({ angebot: "Angebot", auftrag: "Auftrag", bestellung: "Bestellung", rechnung: "Rechnung", gutschrift: "Gutschrift" })[b.art]}</td>
+                        <td className="nummer">{b.belegnummer ?? "Entwurf"}</td>
+                        <td>{b.datum.split("-").reverse().join(".")}</td>
+                        <td className="zahl">{euro(b.netto_cent)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
+          )}
+        </Schublade>
       )}
 
       {liste.length === 0 ? (
-        <div className="leer">{suche || filter ? "Keine passenden Projekte." : "Noch keine Projekte. Lege mit „Neues Projekt“ das erste an."}</div>
+        <div className="leer"><Icon name="projekte" size={32} /><p>{suche || filter ? "Keine passenden Projekte." : "Noch keine Projekte."}</p>{!suche && !filter && <button className="primaer" onClick={neu}>Erstes Projekt anlegen</button>}</div>
       ) : (
         <table>
           <thead><tr><th>Nr.</th><th>Bezeichnung</th><th>Kunde</th><th>Baustelle</th><th>Herkunft</th><th>Status</th><th>Angelegt</th></tr></thead>
           <tbody>
             {liste.map((p) => (
               <tr key={p.id} onClick={() => { setFehler(null); setForm(p); }}>
-                <td>{p.nummer}</td>
-                <td>{p.bezeichnung}</td>
+                <td className="nummer">{p.nummer}</td>
+                <td><strong>{p.bezeichnung}</strong></td>
                 <td>{p.kunde_name}</td>
                 <td>{p.baustelle}</td>
                 <td>{p.quelle === "onlv" ? "Ausschreibung" : "Direkt"}</td>

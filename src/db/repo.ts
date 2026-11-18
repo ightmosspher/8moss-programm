@@ -15,6 +15,8 @@ export interface Kunde {
   notiz?: string | null;
   firmenbuch?: string | null;
   anrede?: string | null;
+  kundennummer?: string | null;
+  land?: string | null;
 }
 
 export interface KatalogPosition {
@@ -49,6 +51,7 @@ export interface Firma {
   web: string | null;
   unterzeichner: string | null;
   angebot_gueltig_tage: number;
+  land: string | null;
 }
 
 // ---------- Firma ----------
@@ -63,10 +66,10 @@ export async function speichereFirma(f: Firma) {
   await db.execute(
     `UPDATE firma SET name=$1, strasse=$2, plz=$3, ort=$4, uid=$5, email=$6, telefon=$7, iban=$8, bic=$9,
        mittellohn_cent=$10, materialzuschlag_prozent=$11, gesamtzuschlag_prozent=$12, zahlungsziel_tage=$13,
-       firmenbuch=$14, gericht=$15, bank=$16, web=$17, unterzeichner=$18, angebot_gueltig_tage=$19 WHERE id = 1`,
+       firmenbuch=$14, gericht=$15, bank=$16, web=$17, unterzeichner=$18, angebot_gueltig_tage=$19, land=$20 WHERE id = 1`,
     [f.name, f.strasse, f.plz, f.ort, f.uid, f.email, f.telefon, f.iban, f.bic,
      f.mittellohn_cent, f.materialzuschlag_prozent, f.gesamtzuschlag_prozent, f.zahlungsziel_tage,
-     f.firmenbuch, f.gericht, f.bank, f.web, f.unterzeichner, f.angebot_gueltig_tage],
+     f.firmenbuch, f.gericht, f.bank, f.web, f.unterzeichner, f.angebot_gueltig_tage, f.land || "AT"],
   );
 }
 
@@ -74,26 +77,28 @@ export async function speichereFirma(f: Firma) {
 export async function listeKunden(suche = ""): Promise<Kunde[]> {
   const db = await getDb();
   return db.select<Kunde>(
-    "SELECT * FROM kunde WHERE name LIKE $1 OR ort LIKE $1 ORDER BY name COLLATE NOCASE",
+    "SELECT * FROM kunde WHERE name LIKE $1 OR ort LIKE $1 OR kundennummer LIKE $1 OR ansprechperson LIKE $1 ORDER BY name COLLATE NOCASE",
     [`%${suche}%`],
   );
 }
 
 export async function speichereKunde(k: Kunde): Promise<number> {
   const db = await getDb();
-  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid, k.email, k.telefon, k.reverse_charge, k.notiz,
-    k.firmenbuch, k.anrede];
+  const nummer = k.kundennummer?.trim() || (await vergebeNummer("kunde"));
+  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid?.replace(/\s/g, "").toUpperCase() || null, k.email, k.telefon,
+    k.reverse_charge, k.notiz, k.firmenbuch, k.anrede, nummer, k.land || "AT"];
   if (k.id) {
     await db.execute(
       `UPDATE kunde SET name=$1, ansprechperson=$2, strasse=$3, plz=$4, ort=$5, uid=$6, email=$7, telefon=$8,
-         reverse_charge=$9, notiz=$10, firmenbuch=$11, anrede=$12 WHERE id=$13`,
+         reverse_charge=$9, notiz=$10, firmenbuch=$11, anrede=$12, kundennummer=$13, land=$14 WHERE id=$15`,
       [...werte, k.id],
     );
     return k.id;
   }
   const r = await db.execute(
-    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz, firmenbuch, anrede)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz, firmenbuch, anrede,
+       kundennummer, land)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
     werte,
   );
   return r.lastInsertId!;
@@ -119,7 +124,8 @@ export async function listeKatalog(suche = ""): Promise<KatalogPosition[]> {
 
 export async function speichereKatalogPosition(p: KatalogPosition, materialCent: number): Promise<number> {
   const db = await getDb();
-  const werte = [p.nummer, p.gruppe, p.kurztext, p.langtext, p.einheit, p.lohn_minuten, p.sonstiges_cent];
+  const nummer = p.nummer?.trim() || (await vergebeNummer("katalog"));
+  const werte = [nummer, p.gruppe, p.kurztext, p.langtext, p.einheit, p.lohn_minuten, p.sonstiges_cent];
   let id = p.id;
   if (id) {
     await db.execute(
@@ -164,30 +170,36 @@ export interface Lieferant {
   telefon?: string | null;
   unsere_kundennummer?: string | null;
   notiz?: string | null;
+  lieferantennummer?: string | null;
+  land?: string | null;
+  ansprechperson?: string | null;
 }
 
 export async function listeLieferanten(suche = ""): Promise<Lieferant[]> {
   const db = await getDb();
   return db.select<Lieferant>(
-    "SELECT * FROM lieferant WHERE name LIKE $1 OR ort LIKE $1 ORDER BY name COLLATE NOCASE",
+    "SELECT * FROM lieferant WHERE name LIKE $1 OR ort LIKE $1 OR lieferantennummer LIKE $1 ORDER BY name COLLATE NOCASE",
     [`%${suche}%`],
   );
 }
 
 export async function speichereLieferant(l: Lieferant): Promise<number> {
   const db = await getDb();
-  const werte = [l.name, l.strasse, l.plz, l.ort, l.uid, l.email, l.telefon, l.unsere_kundennummer, l.notiz];
+  const nummer = l.lieferantennummer?.trim() || (await vergebeNummer("lieferant"));
+  const werte = [l.name, l.strasse, l.plz, l.ort, l.uid?.replace(/\s/g, "").toUpperCase() || null, l.email, l.telefon,
+    l.unsere_kundennummer, l.notiz, nummer, l.land || "AT", l.ansprechperson];
   if (l.id) {
     await db.execute(
       `UPDATE lieferant SET name=$1, strasse=$2, plz=$3, ort=$4, uid=$5, email=$6, telefon=$7,
-         unsere_kundennummer=$8, notiz=$9 WHERE id=$10`,
+         unsere_kundennummer=$8, notiz=$9, lieferantennummer=$10, land=$11, ansprechperson=$12 WHERE id=$13`,
       [...werte, l.id],
     );
     return l.id;
   }
   const r = await db.execute(
-    `INSERT INTO lieferant (name, strasse, plz, ort, uid, email, telefon, unsere_kundennummer, notiz)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+    `INSERT INTO lieferant (name, strasse, plz, ort, uid, email, telefon, unsere_kundennummer, notiz, lieferantennummer, land,
+       ansprechperson)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     werte,
   );
   return r.lastInsertId!;
@@ -258,4 +270,124 @@ export async function speichereProjekt(p: Projekt): Promise<number> {
 export async function loescheProjekt(id: number) {
   const db = await getDb();
   await db.execute("DELETE FROM projekt WHERE id = $1", [id]);
+}
+
+// ---------- Nummernkreise ----------
+export type NummernArt = "kunde" | "lieferant" | "artikel" | "katalog" | "aufbau";
+
+export interface Nummernkreis {
+  art: NummernArt;
+  praefix: string;
+  stellen: number;
+  naechste_nummer: number;
+}
+
+export const nummernkreisNamen: Record<NummernArt, string> = {
+  kunde: "Kunden",
+  lieferant: "Lieferanten",
+  artikel: "Artikel (Material)",
+  katalog: "Positionskatalog",
+  aufbau: "Aufbauten (Kalkulation)",
+};
+
+const nummernTabelle: Record<NummernArt, [string, string]> = {
+  kunde: ["kunde", "kundennummer"],
+  lieferant: ["lieferant", "lieferantennummer"],
+  artikel: ["artikel", "nummer"],
+  katalog: ["katalog_position", "nummer"],
+  aufbau: ["aufbau", "nummer"],
+};
+
+export const formatNummer = (n: Pick<Nummernkreis, "praefix" | "stellen">, zahl: number) =>
+  `${n.praefix}${String(zahl).padStart(Math.max(1, n.stellen), "0")}`;
+
+export async function listeNummernkreise(): Promise<Nummernkreis[]> {
+  const db = await getDb();
+  const alle = await db.select<Nummernkreis>("SELECT art, praefix, stellen, naechste_nummer FROM nummernkreis");
+  return (Object.keys(nummernkreisNamen) as NummernArt[])
+    .map((a) => alle.find((n) => n.art === a))
+    .filter((n): n is Nummernkreis => !!n);
+}
+
+export async function speichereNummernkreis(n: Nummernkreis) {
+  const db = await getDb();
+  await db.execute("UPDATE nummernkreis SET praefix=$1, stellen=$2, naechste_nummer=$3 WHERE art=$4",
+    [n.praefix, n.stellen, n.naechste_nummer, n.art]);
+}
+
+/** Vorschau der nächsten Nummer, ohne sie zu verbrauchen. */
+export async function naechsteNummerVorschau(art: NummernArt): Promise<string> {
+  const db = await getDb();
+  const [n] = await db.select<Nummernkreis>("SELECT * FROM nummernkreis WHERE art = $1", [art]);
+  return n ? formatNummer(n, n.naechste_nummer) : "";
+}
+
+/** Vergibt die nächste freie Nummer und zählt den Nummernkreis weiter. */
+export async function vergebeNummer(art: NummernArt): Promise<string | null> {
+  const db = await getDb();
+  const [n] = await db.select<Nummernkreis>("SELECT * FROM nummernkreis WHERE art = $1", [art]);
+  if (!n) return null;
+  const [tabelle, spalte] = nummernTabelle[art];
+  let zahl = n.naechste_nummer;
+  // vergebene Nummern überspringen (z. B. von Hand eingetragen)
+  for (;;) {
+    const [{ c }] = await db.select<{ c: number }>(`SELECT COUNT(*) AS c FROM ${tabelle} WHERE ${spalte} = $1`, [formatNummer(n, zahl)]);
+    if (!c) break;
+    zahl++;
+  }
+  await db.execute("UPDATE nummernkreis SET naechste_nummer = $1 WHERE art = $2", [zahl + 1, art]);
+  return formatNummer(n, zahl);
+}
+
+// ---------- Artikel (Material) ----------
+export interface Artikel {
+  id?: number;
+  nummer?: string | null;
+  bezeichnung: string;
+  gruppe?: string | null;
+  einheit: string;
+  einkaufspreis_cent: number;
+  lieferant_id?: number | null;
+  lieferant_name?: string | null;
+  hersteller?: string | null;
+  lieferanten_artikelnummer?: string | null;
+  preis_stand?: string | null;
+  notiz?: string | null;
+}
+
+export async function listeArtikel(suche = ""): Promise<Artikel[]> {
+  const db = await getDb();
+  return db.select<Artikel>(
+    `SELECT a.*, l.name AS lieferant_name FROM artikel a LEFT JOIN lieferant l ON l.id = a.lieferant_id
+     WHERE a.aktiv = 1 AND (a.bezeichnung LIKE $1 OR a.nummer LIKE $1 OR a.gruppe LIKE $1 OR COALESCE(l.name,'') LIKE $1
+       OR COALESCE(a.lieferanten_artikelnummer,'') LIKE $1)
+     ORDER BY a.gruppe, a.bezeichnung COLLATE NOCASE`,
+    [`%${suche}%`],
+  );
+}
+
+export async function speichereArtikel(a: Artikel): Promise<number> {
+  const db = await getDb();
+  const nummer = a.nummer?.trim() || (await vergebeNummer("artikel"));
+  const werte = [nummer, a.bezeichnung, a.gruppe, a.einheit, a.einkaufspreis_cent, a.lieferant_id || null, a.hersteller,
+    a.lieferanten_artikelnummer, a.preis_stand, a.notiz];
+  if (a.id) {
+    await db.execute(
+      `UPDATE artikel SET nummer=$1, bezeichnung=$2, gruppe=$3, einheit=$4, einkaufspreis_cent=$5, lieferant_id=$6,
+         hersteller=$7, lieferanten_artikelnummer=$8, preis_stand=$9, notiz=$10 WHERE id=$11`,
+      [...werte, a.id],
+    );
+    return a.id;
+  }
+  const r = await db.execute(
+    `INSERT INTO artikel (nummer, bezeichnung, gruppe, einheit, einkaufspreis_cent, lieferant_id, hersteller,
+       lieferanten_artikelnummer, preis_stand, notiz) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    werte,
+  );
+  return r.lastInsertId!;
+}
+
+export async function deaktiviereArtikel(id: number) {
+  const db = await getDb();
+  await db.execute("UPDATE artikel SET aktiv = 0 WHERE id = $1", [id]);
 }

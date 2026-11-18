@@ -5,6 +5,7 @@
  */
 import { getDb } from "./index";
 import { Firma, Kunde } from "./repo";
+import { ohneUst, Steuerfall, steuerfallVon } from "../lib/steuer";
 
 export type BelegArt = "angebot" | "auftrag" | "bestellung" | "rechnung" | "gutschrift";
 
@@ -17,6 +18,7 @@ export interface BelegPosition {
   menge: number;
   einheitspreis_cent: number;
   katalog_position_id?: number | null; // nur im Editor, Herkunft aus dem Katalog
+  kalkulation?: string | null; // Bauteilkalkulation als JSON
 }
 
 export interface Beleg {
@@ -33,6 +35,7 @@ export interface Beleg {
   schlusstext?: string | null;
   ust_prozent: number;
   reverse_charge: number;
+  steuerfall?: Steuerfall | null;
   zahlungsziel_tage?: number | null;
   netto_cent?: number | null;
   ust_cent?: number | null;
@@ -46,9 +49,9 @@ export interface Beleg {
 export const positionGesamt = (p: Pick<BelegPosition, "menge" | "einheitspreis_cent">) =>
   Math.round(p.menge * p.einheitspreis_cent);
 
-export function summen(positionen: BelegPosition[], ustProzent: number, reverseCharge: boolean) {
+export function summen(positionen: BelegPosition[], ustProzent: number, keineUst: boolean) {
   const netto = positionen.reduce((s, p) => s + positionGesamt(p), 0);
-  const ust = reverseCharge ? 0 : Math.round((netto * ustProzent) / 100);
+  const ust = keineUst ? 0 : Math.round((netto * ustProzent) / 100);
   return { netto, ust, brutto: netto + ust };
 }
 
@@ -80,22 +83,24 @@ export async function ladeBeleg(id: number): Promise<{ beleg: Beleg; positionen:
 /** Speichert einen Entwurf samt Positionen. Gibt die Beleg-ID zurück. */
 export async function speichereEntwurf(b: Beleg, positionen: BelegPosition[]): Promise<number> {
   const db = await getDb();
-  const s = summen(positionen, b.ust_prozent, !!b.reverse_charge);
+  const fall = steuerfallVon(b);
+  const s = summen(positionen, b.ust_prozent, ohneUst(fall));
   const werte = [b.art, b.projekt_id, b.kunde_id, b.datum, b.anrede, b.vortext, b.schlusstext,
-    b.ust_prozent, b.reverse_charge, b.zahlungsziel_tage, s.netto, s.ust, s.brutto];
+    b.ust_prozent, fall === "rc_bau" ? 1 : 0, b.zahlungsziel_tage, s.netto, s.ust, s.brutto, fall];
   let id = b.id;
   if (id) {
     await db.execute(
       `UPDATE beleg SET art=$1, projekt_id=$2, kunde_id=$3, datum=$4, anrede=$5, vortext=$6, schlusstext=$7,
-         ust_prozent=$8, reverse_charge=$9, zahlungsziel_tage=$10, netto_cent=$11, ust_cent=$12, brutto_cent=$13
-       WHERE id=$14 AND status='entwurf'`,
+         ust_prozent=$8, reverse_charge=$9, zahlungsziel_tage=$10, netto_cent=$11, ust_cent=$12, brutto_cent=$13,
+         steuerfall=$14
+       WHERE id=$15 AND status='entwurf'`,
       [...werte, id],
     );
   } else {
     const r = await db.execute(
       `INSERT INTO beleg (art, projekt_id, kunde_id, datum, anrede, vortext, schlusstext, ust_prozent, reverse_charge,
-         zahlungsziel_tage, netto_cent, ust_cent, brutto_cent)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+         zahlungsziel_tage, netto_cent, ust_cent, brutto_cent, steuerfall)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       werte,
     );
     id = r.lastInsertId!;
@@ -104,10 +109,10 @@ export async function speichereEntwurf(b: Beleg, positionen: BelegPosition[]): P
   for (const [i, p] of positionen.entries()) {
     await db.execute(
       `INSERT INTO beleg_position (beleg_id, sortierung, ordnungszahl, kurztext, langtext, einheit, menge,
-         einheitspreis_cent, gesamt_cent)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-      [id, i, p.ordnungszahl || `${i + 1}.0`, p.kurztext, p.langtext, p.einheit, p.menge,
-       p.einheitspreis_cent, positionGesamt(p)],
+         einheitspreis_cent, gesamt_cent, kalkulation)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [id, i, `${i + 1}.0`, p.kurztext, p.langtext, p.einheit, p.menge,
+       p.einheitspreis_cent, positionGesamt(p), p.kalkulation ?? null],
     );
   }
   return id;
@@ -177,4 +182,29 @@ export function angebotTexte(f: Firma, projekt?: { bezeichnung: string; baustell
     vortext: `wir bedanken uns für Ihre Anfrage zu ${was} und erlauben uns, folgendes Angebot zu legen:`,
     schlusstext: `Dieses Angebot ist ${f.angebot_gueltig_tage} Tage gültig. Wir freuen uns auf Ihren Auftrag.`,
   };
+}
+
+/** Alle Belege eines Projekts (für die Projektansicht). */
+export async function listeBelegeZuProjekt(projektId: number): Promise<Beleg[]> {
+  const db = await getDb();
+  return db.select<Beleg>("SELECT * FROM beleg WHERE projekt_id = $1 ORDER BY datum DESC, id DESC", [projektId]);
+}
+
+/** Kennzahlen für die Startseite. */
+export async function kennzahlen() {
+  const db = await getDb();
+  const [a] = await db.select<{ offen_anzahl: number; offen_netto: number; entwuerfe: number }>(
+    `SELECT
+       (SELECT COUNT(*) FROM beleg b JOIN projekt p ON p.id = b.projekt_id WHERE b.art = 'angebot' AND b.status = 'abgeschlossen' AND p.status = 'angebot') AS offen_anzahl,
+       (SELECT COALESCE(SUM(b.netto_cent), 0) FROM beleg b JOIN projekt p ON p.id = b.projekt_id WHERE b.art = 'angebot' AND b.status = 'abgeschlossen' AND p.status = 'angebot'
+          AND b.id = (SELECT MAX(x.id) FROM beleg x WHERE x.projekt_id = b.projekt_id AND x.art = 'angebot' AND x.status = 'abgeschlossen')) AS offen_netto,
+       (SELECT COUNT(*) FROM beleg WHERE status = 'entwurf') AS entwuerfe`,
+  );
+  const status = await db.select<{ status: string; anzahl: number }>("SELECT status, COUNT(*) AS anzahl FROM projekt GROUP BY status");
+  const letzte = await db.select<Beleg>(
+    `SELECT b.*, k.name AS kunde_name, p.bezeichnung AS projekt_bezeichnung
+     FROM beleg b LEFT JOIN kunde k ON k.id = b.kunde_id LEFT JOIN projekt p ON p.id = b.projekt_id
+     ORDER BY COALESCE(b.abgeschlossen_am, b.erstellt_am) DESC, b.id DESC LIMIT 6`,
+  );
+  return { ...a, status, letzte };
 }

@@ -225,4 +225,150 @@ ALTER TABLE beleg ADD COLUMN belegnummer TEXT;
 CREATE UNIQUE INDEX ux_beleg_art_belegnummer ON beleg(art, belegnummer);
 `,
   },
+  {
+    version: 4,
+    name: "Nummernkreise, Land, Steuerfall, Artikel, Aufbauten",
+    sql: `
+-- Nummernkreise für Stammdaten: Präfix + fortlaufende Zahl mit fester Stellenanzahl, z. B. K-0001
+ALTER TABLE nummernkreis ADD COLUMN stellen INTEGER NOT NULL DEFAULT 4;
+INSERT INTO nummernkreis (art, praefix, jahr, naechste_nummer, stellen) VALUES
+  ('kunde', 'K-', 0, 1, 4),
+  ('lieferant', 'L-', 0, 1, 4),
+  ('artikel', 'A-', 0, 1, 5),
+  ('katalog', 'P-', 0, 1, 4),
+  ('aufbau', 'B-', 0, 1, 3);
+
+ALTER TABLE kunde ADD COLUMN kundennummer TEXT;
+UPDATE kunde SET kundennummer = 'K-' || substr('0000' || id, -4);
+UPDATE nummernkreis SET naechste_nummer = COALESCE((SELECT MAX(id) FROM kunde), 0) + 1 WHERE art = 'kunde';
+CREATE UNIQUE INDEX ux_kunde_nummer ON kunde(kundennummer);
+
+ALTER TABLE lieferant ADD COLUMN lieferantennummer TEXT;
+UPDATE lieferant SET lieferantennummer = 'L-' || substr('0000' || id, -4);
+UPDATE nummernkreis SET naechste_nummer = COALESCE((SELECT MAX(id) FROM lieferant), 0) + 1 WHERE art = 'lieferant';
+CREATE UNIQUE INDEX ux_lieferant_nummer ON lieferant(lieferantennummer);
+ALTER TABLE lieferant ADD COLUMN ansprechperson TEXT;
+
+UPDATE kunde SET land = 'AT' WHERE land IS NULL OR land = '';
+UPDATE lieferant SET land = 'AT' WHERE land IS NULL OR land = '';
+UPDATE firma SET land = 'AT' WHERE land IS NULL OR land = '';
+
+-- Steuerfall je Beleg (inland, rc_bau, eu_rc, eu_lieferung, drittland). Alte Belege: aus reverse_charge abgeleitet.
+ALTER TABLE beleg ADD COLUMN steuerfall TEXT;
+-- Bauteilkalkulation einer Position (Aufmaß und Aufbau als JSON), damit sie wieder geöffnet werden kann
+ALTER TABLE beleg_position ADD COLUMN kalkulation TEXT;
+
+-- Artikel (Material) mit Einkaufspreis und Lieferant
+ALTER TABLE artikel ADD COLUMN gruppe TEXT;
+ALTER TABLE artikel ADD COLUMN hersteller TEXT;
+ALTER TABLE artikel ADD COLUMN lieferanten_artikelnummer TEXT;
+ALTER TABLE artikel ADD COLUMN preis_stand TEXT;
+ALTER TABLE artikel ADD COLUMN notiz TEXT;
+ALTER TABLE artikel ADD COLUMN aktiv INTEGER NOT NULL DEFAULT 1;
+CREATE UNIQUE INDEX ux_artikel_nummer ON artikel(nummer);
+
+-- Aufbauten für die Bauteilkalkulation (Wand, Decke, Boden), wie Rezepte:
+-- je m² (oder lfm, Stk) welche Materialien in welcher Menge und wie viel Arbeitszeit.
+CREATE TABLE aufbau (
+  id INTEGER PRIMARY KEY,
+  nummer TEXT,
+  bauteil TEXT NOT NULL DEFAULT 'wand',      -- wand, decke, boden, sonstiges
+  bezeichnung TEXT NOT NULL,
+  langtext TEXT,
+  einheit TEXT NOT NULL DEFAULT 'm2',
+  aktiv INTEGER NOT NULL DEFAULT 1,
+  erstellt_am TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE aufbau_schicht (
+  id INTEGER PRIMARY KEY,
+  aufbau_id INTEGER NOT NULL REFERENCES aufbau(id) ON DELETE CASCADE,
+  sortierung INTEGER NOT NULL DEFAULT 0,
+  artikel_id INTEGER REFERENCES artikel(id),
+  bezeichnung TEXT NOT NULL,
+  verbrauch REAL NOT NULL DEFAULT 1,          -- Menge je Einheit des Aufbaus
+  einheit TEXT,
+  verschnitt_prozent REAL NOT NULL DEFAULT 0,
+  preis_cent INTEGER NOT NULL DEFAULT 0,      -- nur wenn kein Artikel verknüpft ist
+  lohn_minuten REAL NOT NULL DEFAULT 0        -- Arbeitszeit je Einheit des Aufbaus
+);
+CREATE INDEX idx_schicht_aufbau ON aufbau_schicht(aufbau_id);
+`,
+  },
+  {
+    version: 5,
+    name: "Beispiel-Aufbauten für Wand, Decke, Boden",
+    sql: `
+INSERT INTO artikel (nummer, bezeichnung, gruppe, einheit, einkaufspreis_cent, notiz) VALUES
+  ('A-00001', 'UW-Profil 50', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00002', 'CW-Profil 50', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00003', 'UW-Profil 75', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00004', 'CW-Profil 75', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00005', 'CD-Profil 60/27', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00006', 'UD-Profil 28/27', 'Trockenbau Profile', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00007', 'Noniusabhänger komplett', 'Trockenbau Zubehör', 'Stk', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00008', 'Gipskartonplatte GKB 12,5 mm', 'Trockenbau Platten', 'm2', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00009', 'Gipskartonplatte imprägniert GKBI 12,5 mm', 'Trockenbau Platten', 'm2', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00010', 'Mineralwolle 50 mm', 'Dämmung', 'm2', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00011', 'Schnellbauschraube TN 25', 'Trockenbau Zubehör', 'Stk', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00012', 'Schnellbauschraube TN 35', 'Trockenbau Zubehör', 'Stk', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00013', 'Fugenspachtel', 'Trockenbau Zubehör', 'kg', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00014', 'Anschlussdichtung', 'Trockenbau Zubehör', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00015', 'Trockenschüttung', 'Boden', 'l', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00016', 'Trockenestrich-Element 25 mm', 'Boden', 'm2', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00017', 'Randdämmstreifen', 'Boden', 'lfm', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00018', 'Grundierung', 'Boden', 'kg', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00019', 'Belagskleber', 'Boden', 'kg', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00020', 'Designbelag Vinyl', 'Boden', 'm2', 0, 'Beispiel, Preis bitte eintragen'),
+  ('A-00021', 'Sockelleiste', 'Boden', 'lfm', 0, 'Beispiel, Preis bitte eintragen');
+UPDATE nummernkreis SET naechste_nummer = 22 WHERE art = 'artikel';
+
+INSERT INTO aufbau (nummer, bauteil, bezeichnung, einheit, langtext) VALUES
+  ('B-001', 'wand', 'Ständerwand CW 75, beidseitig doppelt beplankt',  'm2',
+   'Nichttragende Metallständerwand, Wanddicke ca. 125 mm, Unterkonstruktion aus UW/CW-Profilen 75 mm, Achsabstand 62,5 cm, Hohlraum mit Mineralwolle 50 mm gedämmt, beidseitig doppelt mit Gipskartonplatten GKB 12,5 mm beplankt, Fugen gespachtelt (Qualitätsstufe Q2), Anschlüsse mit Anschlussdichtung.'),
+  ('B-002', 'wand', 'Vorsatzschale CW 50, einfach beplankt', 'm2',
+   'Freistehende Vorsatzschale aus UW/CW-Profilen 50 mm, Achsabstand 62,5 cm, Hohlraum mit Mineralwolle 50 mm gedämmt, einseitig einfach mit Gipskartonplatten GKB 12,5 mm beplankt, Fugen gespachtelt (Q2).'),
+  ('B-003', 'decke', 'Abgehängte Decke GKB auf CD-Unterkonstruktion', 'm2',
+   'Abgehängte Gipskartondecke, Unterkonstruktion aus CD-Profilen 60/27 als Grund- und Traglattung mit Noniusabhängern, Randanschluss mit UD-Profil, einfach beplankt mit Gipskartonplatten GKB 12,5 mm, Fugen gespachtelt (Q2).'),
+  ('B-004', 'boden', 'Trockenestrich auf Schüttung', 'm2',
+   'Trockenestrich aus Estrich-Elementen 25 mm, verlegt auf Trockenschüttung ca. 30 mm, inkl. Randdämmstreifen.'),
+  ('B-005', 'boden', 'Designbelag Vinyl verklebt, mit Sockelleiste', 'm2',
+   'Designbelag Vinyl vollflächig verklebt, Untergrund grundiert, inkl. Sockelleiste.');
+UPDATE nummernkreis SET naechste_nummer = 6 WHERE art = 'aufbau';
+
+INSERT INTO aufbau_schicht (aufbau_id, sortierung, artikel_id, bezeichnung, verbrauch, einheit, verschnitt_prozent, lohn_minuten)
+SELECT a.id, s.sortierung, ar.id, ar.bezeichnung, s.verbrauch, ar.einheit, s.verschnitt, s.lohn
+FROM (
+  SELECT 'B-001' AS aufbau, 1 AS sortierung, 'A-00003' AS artikel, 0.7 AS verbrauch, 5 AS verschnitt, 4 AS lohn
+  UNION ALL SELECT 'B-001', 2, 'A-00004', 2.0, 5, 10
+  UNION ALL SELECT 'B-001', 3, 'A-00014', 1.4, 5, 2
+  UNION ALL SELECT 'B-001', 4, 'A-00010', 1.0, 5, 5
+  UNION ALL SELECT 'B-001', 5, 'A-00008', 4.0, 10, 28
+  UNION ALL SELECT 'B-001', 6, 'A-00011', 14, 0, 0
+  UNION ALL SELECT 'B-001', 7, 'A-00012', 28, 0, 0
+  UNION ALL SELECT 'B-001', 8, 'A-00013', 0.7, 0, 18
+  UNION ALL SELECT 'B-002', 1, 'A-00001', 0.7, 5, 3
+  UNION ALL SELECT 'B-002', 2, 'A-00002', 2.0, 5, 8
+  UNION ALL SELECT 'B-002', 3, 'A-00014', 0.7, 5, 1
+  UNION ALL SELECT 'B-002', 4, 'A-00010', 1.0, 5, 4
+  UNION ALL SELECT 'B-002', 5, 'A-00008', 1.0, 10, 9
+  UNION ALL SELECT 'B-002', 6, 'A-00011', 15, 0, 0
+  UNION ALL SELECT 'B-002', 7, 'A-00013', 0.35, 0, 9
+  UNION ALL SELECT 'B-003', 1, 'A-00007', 1.3, 0, 6
+  UNION ALL SELECT 'B-003', 2, 'A-00005', 3.2, 5, 16
+  UNION ALL SELECT 'B-003', 3, 'A-00006', 0.4, 5, 3
+  UNION ALL SELECT 'B-003', 4, 'A-00008', 1.0, 10, 14
+  UNION ALL SELECT 'B-003', 5, 'A-00011', 17, 0, 0
+  UNION ALL SELECT 'B-003', 6, 'A-00013', 0.4, 0, 14
+  UNION ALL SELECT 'B-004', 1, 'A-00017', 0.6, 5, 2
+  UNION ALL SELECT 'B-004', 2, 'A-00015', 30, 5, 8
+  UNION ALL SELECT 'B-004', 3, 'A-00016', 1.0, 5, 14
+  UNION ALL SELECT 'B-005', 1, 'A-00018', 0.15, 0, 4
+  UNION ALL SELECT 'B-005', 2, 'A-00019', 0.35, 0, 0
+  UNION ALL SELECT 'B-005', 3, 'A-00020', 1.0, 8, 20
+  UNION ALL SELECT 'B-005', 4, 'A-00021', 0.6, 5, 6
+) s
+JOIN aufbau a ON a.nummer = s.aufbau
+JOIN artikel ar ON ar.nummer = s.artikel;
+`,
+  },
 ];
