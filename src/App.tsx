@@ -4,6 +4,7 @@ import Kunden from "./views/Kunden";
 import Katalog from "./views/Katalog";
 import Lieferanten from "./views/Lieferanten";
 import Projekte from "./views/Projekte";
+import Angebote from "./views/Angebote";
 import Einstellungen from "./views/Einstellungen";
 import Platzhalter from "./views/Platzhalter";
 
@@ -55,7 +56,7 @@ export default function App() {
             {seite === "katalog" && <Katalog />}
             {seite === "einstellungen" && <Einstellungen />}
             {seite === "projekte" && <Projekte zuKunden={() => setSeite("kunden")} />}
-            {seite === "angebote" && <Platzhalter titel="Angebote" text="Angebot aus Katalogpositionen zusammenstellen und als PDF im 8moss-Layout ausgeben. Kommt im Prototyp." />}
+            {seite === "angebote" && <Angebote />}
             {seite === "lieferanten" && <Lieferanten />}
             {seite === "bestellungen" && <Platzhalter titel="Bestellungen" text="Bestellung je Lieferant aus Auftragspositionen. Kommt im Ausbau." />}
             {seite === "rechnungen" && <Platzhalter titel="Rechnungen" text="Abschlags- und Schlussrechnung mit ebInterface-Export. Kommt im Ausbau." />}

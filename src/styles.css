@@ -55,3 +55,21 @@ tbody tr:last-child td { border-bottom: 0; }
 .status-auftrag { background: var(--moos-hell); color: var(--moos); font-weight: 600; }
 .status-abgerechnet { background: #e4ecf5; color: #2f5a86; }
 .status-verloren { background: #f3e9e7; color: #8c5a52; }
+.erfolg { background: var(--moos-hell); color: var(--moos); padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+.hinweis-box { background: #fdf3dc; color: #8a6414; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; }
+button:disabled { opacity: 0.45; cursor: default; }
+input:disabled, select:disabled, textarea:disabled { background: #faf9f6; color: var(--text); }
+table.positionen { margin-bottom: 4px; }
+table.positionen td { vertical-align: top; padding: 8px 8px; }
+table.positionen input, table.positionen textarea { width: 100%; }
+table.positionen .leistung { min-width: 320px; }
+table.positionen .leistung textarea { margin-top: 6px; font-size: 13px; }
+table.positionen input.schmal { width: 90px; }
+table.positionen input.sehrschmal { width: 64px; }
+table.positionen tfoot td { padding: 6px 8px; border-bottom: 0; }
+table.positionen tfoot tr:first-child td { border-top: 1px solid var(--linie); }
+tr.keinklick { cursor: default; }
+tr.keinklick:hover { background: none; }
+.aktionen { white-space: nowrap; }
+.aktionen button { padding: 4px 8px; margin-left: 2px; }
+button.link { border: 0; background: none; color: var(--moos); padding: 4px 0; font-size: 12px; }

@@ -13,6 +13,8 @@ export interface Kunde {
   telefon?: string | null;
   reverse_charge: number;
   notiz?: string | null;
+  firmenbuch?: string | null;
+  anrede?: string | null;
 }
 
 export interface KatalogPosition {
@@ -41,6 +43,12 @@ export interface Firma {
   materialzuschlag_prozent: number;
   gesamtzuschlag_prozent: number;
   zahlungsziel_tage: number;
+  firmenbuch: string | null;
+  gericht: string | null;
+  bank: string | null;
+  web: string | null;
+  unterzeichner: string | null;
+  angebot_gueltig_tage: number;
 }
 
 // ---------- Firma ----------
@@ -54,9 +62,11 @@ export async function speichereFirma(f: Firma) {
   const db = await getDb();
   await db.execute(
     `UPDATE firma SET name=$1, strasse=$2, plz=$3, ort=$4, uid=$5, email=$6, telefon=$7, iban=$8, bic=$9,
-       mittellohn_cent=$10, materialzuschlag_prozent=$11, gesamtzuschlag_prozent=$12, zahlungsziel_tage=$13 WHERE id = 1`,
+       mittellohn_cent=$10, materialzuschlag_prozent=$11, gesamtzuschlag_prozent=$12, zahlungsziel_tage=$13,
+       firmenbuch=$14, gericht=$15, bank=$16, web=$17, unterzeichner=$18, angebot_gueltig_tage=$19 WHERE id = 1`,
     [f.name, f.strasse, f.plz, f.ort, f.uid, f.email, f.telefon, f.iban, f.bic,
-     f.mittellohn_cent, f.materialzuschlag_prozent, f.gesamtzuschlag_prozent, f.zahlungsziel_tage],
+     f.mittellohn_cent, f.materialzuschlag_prozent, f.gesamtzuschlag_prozent, f.zahlungsziel_tage,
+     f.firmenbuch, f.gericht, f.bank, f.web, f.unterzeichner, f.angebot_gueltig_tage],
   );
 }
 
@@ -71,18 +81,19 @@ export async function listeKunden(suche = ""): Promise<Kunde[]> {
 
 export async function speichereKunde(k: Kunde): Promise<number> {
   const db = await getDb();
-  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid, k.email, k.telefon, k.reverse_charge, k.notiz];
+  const werte = [k.name, k.ansprechperson, k.strasse, k.plz, k.ort, k.uid, k.email, k.telefon, k.reverse_charge, k.notiz,
+    k.firmenbuch, k.anrede];
   if (k.id) {
     await db.execute(
       `UPDATE kunde SET name=$1, ansprechperson=$2, strasse=$3, plz=$4, ort=$5, uid=$6, email=$7, telefon=$8,
-         reverse_charge=$9, notiz=$10 WHERE id=$11`,
+         reverse_charge=$9, notiz=$10, firmenbuch=$11, anrede=$12 WHERE id=$13`,
       [...werte, k.id],
     );
     return k.id;
   }
   const r = await db.execute(
-    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    `INSERT INTO kunde (name, ansprechperson, strasse, plz, ort, uid, email, telefon, reverse_charge, notiz, firmenbuch, anrede)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
     werte,
   );
   return r.lastInsertId!;
